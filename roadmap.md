@@ -7,7 +7,7 @@ This file tracks the implementation state of the project.
 The project context and architectural principles are stored in:
 
 ```text
-AGENT_CONTEXT.md
+context.md
 ```
 
 This roadmap contains:
@@ -84,8 +84,8 @@ Prepare a minimal Python development environment.
 * [ ] Create a private Git repository.
 * [ ] Add initial dependency configuration.
 * [ ] Add a minimal README.
-* [ ] Add `AGENT_CONTEXT.md`.
-* [ ] Add `ROADMAP.md`.
+* [ ] Add `context.md`.
+* [ ] Add `roadmap.md`.
 
 ## Completion criteria
 

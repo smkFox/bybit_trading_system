@@ -216,3 +216,22 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local market data and databases
+data/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Local logs
+logs/
+*.log
+
+# Local exports and generated results
+exports/
+reports/generated/
+
+# Operating system files
+.DS_Store
+Thumbs.db

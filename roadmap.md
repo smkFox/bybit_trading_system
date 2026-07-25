@@ -49,7 +49,7 @@ Create a reliable minimal Data Layer for ETHUSDT candles from Bybit.
 ## Current active task
 
 ```text
-Verify public Bybit API connectivity and inspect a real candle response.
+Inspect and normalize real Bybit candle data.
 ```
 
 ## Current constraints
@@ -80,12 +80,11 @@ Prepare a minimal Python development environment.
 * [x] Create the project folder.
 * [x] Create a virtual environment.
 * [x] Select the virtual environment in VS Code.
-* [ ] Create `.gitignore`.
-* [ ] Create a private Git repository.
-* [ ] Add initial dependency configuration.
-* [ ] Add a minimal README.
-* [ ] Add `context.md`.
-* [ ] Add `roadmap.md`.
+* [x] Create `.gitignore`.
+* [x] Create a private Git repository.
+* [x] Add initial dependency configuration.
+* [x] Add `context.md`.
+* [x] Add `roadmap.md`.
 
 ## Completion criteria
 
@@ -103,13 +102,13 @@ Create a reliable source of historical and current closed ETHUSDT candles.
 
 ### Tasks
 
-* [ ] Identify the public Bybit endpoint for perpetual kline data.
-* [ ] Send a minimal request without API keys.
-* [ ] Request a small ETHUSDT candle sample.
-* [ ] Print the raw response.
-* [ ] Confirm whether access works from the current network.
-* [ ] Record any VPN or regional-access requirement.
-* [ ] Confirm the requested market category and symbol.
+* [x] Identify the public Bybit endpoint for perpetual kline data.
+* [x] Send a minimal request without API keys.
+* [x] Request a small ETHUSDT candle sample.
+* [x] Print the raw response.
+* [x] Confirm whether access works from the current network.
+* [x] Record any VPN or regional-access requirement.
+* [x] Confirm the requested market category and symbol.
 
 ### Questions to answer
 
@@ -687,6 +686,27 @@ The planned candle-based workload does not require institutional infrastructure.
 # Work log
 
 Add completed work in reverse chronological order.
+
+## 2026-07-25
+
+### Completed
+
+* Added a minimal public Bybit connectivity check for `ETHUSDT` linear perpetual 15-minute candles.
+* Added and pinned the `requests` dependency.
+
+### Verified
+
+* `GET https://api.bybit.com/v5/market/kline` returned HTTP 200 and Bybit `retCode` 0 without API keys.
+* Direct access from the current network succeeded without a VPN.
+* The response returned `ETHUSDT` with category `linear`.
+* Candle fields are strings and candles are ordered newest first.
+* Candle start time is represented as a Unix timestamp in milliseconds.
+* The response can include the currently open candle.
+* The documented page limit is 1 through 1000 candles.
+
+### Next
+
+* Inspect and normalize candle data, including UTC conversion, numeric conversion, chronological sorting, and exclusion of the open candle.
 
 ## YYYY-MM-DD
 

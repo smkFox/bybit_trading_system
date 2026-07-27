@@ -1,616 +1,520 @@
 # Project Context
 
-## 1. Project overview
+## 1. Purpose
 
-The project originally started as an idea for a cryptocurrency trading bot.
+Build a transparent and reproducible algorithmic trading system intended to
+discover, validate and operate strategies with validated positive expectancy while
+keeping risk and drawdown within explicit limits.
 
-During planning, the scope evolved into a small research and trading system that can:
+The long-term business objective is to produce withdrawable trading income
+after sufficient capital has been accumulated. This objective does not imply
+guaranteed daily or monthly profit.
 
-* collect and store market data;
-* analyze historical market behavior;
-* determine the current market regime;
-* run trading strategies;
-* backtest strategies on historical data;
-* compare strategy parameters;
-* select an approved configuration;
-* trade in demo mode and, later, live mode;
-* monitor whether the active strategy continues to behave within expected limits.
+Research is a tool for discovering, rejecting, validating, and improving
+trading ideas. Research itself is not the final product.
 
-The project is not intended to become a high-frequency trading platform, institutional trading system, or fully autonomous AI trader.
-
-The first target instrument is:
-
-* Exchange: Bybit
-* Market: USDT perpetual futures
-* Symbol: ETHUSDT
-* Main signal timeframe: 15 minutes
-* Higher timeframe for market regime: 1 hour
-* Profit and loss currency: USDT
-
-The first strategy under consideration is Trend Pullback.
+Every market classification, signal, risk calculation, order, and strategy
+change must be explainable and reproducible.
 
 ---
 
-## 2. Main project goal
+## 2. Sources of truth
 
-The main goal is to build a transparent system in which every trading decision can be explained and reproduced.
+This file contains stable project principles and architectural boundaries.
 
-The intended process is:
+`roadmap.md` contains:
+
+* the current phase;
+* the active task;
+* implementation status;
+* deferred work;
+* the decision and work logs.
+
+`README.md` contains current setup and usage instructions.
+
+The existing code and database schema are the source of truth for what is
+actually implemented.
+
+If these sources disagree, do not silently choose one. Inspect the current
+state, explain the mismatch, and update the appropriate document only after the
+intended behavior is confirmed.
+
+---
+
+## 3. Current scope
+
+The initial complete trading cycle is intentionally limited to:
+
+* exchange: Bybit;
+* market: USDT perpetual futures;
+* symbol: `ETHUSDT`;
+* signal timeframe: `15m`;
+* market-regime timeframe: `1h`;
+* profit and loss currency: USDT;
+* trading style: intraday and candle based;
+* one transparent strategy under development and, once approved, one active
+  configuration.
+
+The roadmap identifies the current strategy hypothesis. A new strategy is not
+part of the active scope merely because it may be useful later.
+
+The system is allowed to remain out of the market. Continuous operation does
+not mean continuous trading, and trade frequency must not be forced.
+
+The project is designed for a normal laptop. It is not intended to become an
+HFT platform, institutional execution system, or autonomous AI trader.
+
+---
+
+## 4. Core architecture
+
+The system is divided into logical responsibility layers:
 
 ```text
-Market data
+Data
     ↓
-Market analysis
+Research
     ↓
 Strategy
     ↓
 Backtest
     ↓
-Validation
+Decision
     ↓
-Demo trading
+Trading
     ↓
-Live trading
+Monitoring
 ```
 
-The system should make it possible to answer:
+These are responsibility boundaries. They do not require complex class
+hierarchies, frameworks, services, or separate processes unless a current task
+demonstrates a real need.
 
-* What data was used?
-* Which market regime was detected?
-* Which strategy was active?
-* Which parameters were used?
-* Why was a signal generated?
-* How was the position size calculated?
-* Why was the trade closed?
-* How did the strategy perform historically?
-* Is the current configuration still behaving as expected?
+### 4.1 Data
+
+Responsible for:
+
+* downloading historical candles;
+* incrementally updating closed candles;
+* storing candles;
+* preventing duplicates;
+* loading requested ranges;
+* reporting data-access errors.
+
+The Data layer does not calculate indicators, classify regimes, generate
+signals, or place orders.
+
+### 4.2 Research
+
+Responsible for:
+
+* calculating indicators in memory;
+* examining market regimes;
+* testing explicit hypotheses;
+* comparing strategies and parameters;
+* investigating weaknesses;
+* producing candidate configurations.
+
+Research never places demo or live orders and never changes the active trading
+configuration directly.
+
+### 4.3 Strategy
+
+Receives prepared market data, current position state when required, and an
+explicit configuration.
+
+It returns an explicit trading decision.
+
+The concrete decision model is defined when the strategy is implemented. It
+may represent entry, exit, position management, or no action and may include
+supporting values such as a reason, stop-loss level, and take-profit level.
+
+The same decision model and strategy implementation must be used by backtest,
+demo, and live trading.
+
+A strategy must define, as applicable:
+
+* entry conditions;
+* no-trade conditions;
+* exit conditions;
+* stop-loss calculation;
+* take-profit calculation;
+* maximum holding time, if required by the hypothesis;
+* an explanation and supporting values.
+
+The Strategy layer contains trading rules only. It does not communicate with
+Bybit or SQLite.
+
+### 4.4 Backtest
+
+Processes historical candles sequentially and simulates:
+
+* entries and exits;
+* position sizing;
+* stop loss and take profit;
+* commissions;
+* slippage;
+* trade results and performance metrics.
+
+Backtest, demo, and live trading must call the same strategy implementation.
+
+### 4.5 Decision
+
+Stores the approved production state:
+
+* active strategy;
+* active parameters;
+* whether trading is allowed;
+* candidate and active status;
+* strategy-change history.
+
+A candidate never becomes active merely because it recently performed better.
+Promotion requires validation and manual or explicitly controlled approval.
+
+### 4.6 Trading
+
+Uses only the approved configuration.
+
+Responsible for:
+
+* startup data synchronization;
+* reacting to new closed candles;
+* checking whether trading is allowed;
+* calculating risk and position size;
+* placing and checking orders;
+* recording trades and execution errors;
+* restart and position recovery.
+
+Demo trading must be stable before live trading begins.
+
+### 4.7 Monitoring
+
+Observes:
+
+* data freshness and gaps;
+* API connectivity and failures;
+* order and position state;
+* drawdown and risk limits;
+* rolling strategy health;
+* system errors.
+
+Monitoring may reduce risk or pause trading according to approved rules. It
+must not optimize parameters or replace strategy logic automatically.
+
+Telegram is planned initially as a read-only notification and text-dashboard
+channel for system state, trades, open exposure, profit, loss, and errors. It is
+not initially a source of trading decisions or strategy changes.
 
 ---
 
-## 3. Scope principles
+## 5. Market-data and time invariants
 
-The project must remain appropriate for a personal system running on a normal laptop.
+Raw market candles are the primary source data.
 
-The system is designed around:
+The following rules are mandatory:
 
-* one exchange initially;
-* one trading symbol initially;
-* a small number of strategies;
-* candle-based trading rather than high-frequency data;
-* research performed periodically rather than continuously;
-* simple local storage;
-* transparent Python code;
-* manual approval of important strategy changes.
+* all stored market timestamps use UTC;
+* only closed candles are used for initial analysis and trading decisions;
+* candles are processed chronologically;
+* historical simulation never accesses future candles;
+* a `1h` regime associated with a `15m` candle must use only the last closed
+  `1h` candle available at that moment;
+* requested database ranges are filtered before unnecessary data is loaded;
+* historical and incremental downloads use the same Bybit client and
+  normalization logic;
+* repeated downloads must be safe and must not create duplicate candles.
 
-The following are not current goals:
+The natural candle key is:
 
-* high-frequency trading;
-* order book microstructure research;
-* machine learning;
-* neural networks;
-* tick-level data processing;
-* distributed computing;
-* cloud infrastructure;
-* automatic deployment;
-* automatic strategy replacement without validation;
-* large-scale portfolio management;
-* support for many exchanges and hundreds of symbols.
+```text
+symbol + timeframe + open_time
+```
 
-These features must not be implemented merely as preparation for a hypothetical future.
+If data contains gaps, duplicates, invalid OHLC values, unaligned timestamps,
+or an open candle where only closed candles are expected, the problem must be
+reported rather than silently hidden.
 
 ---
 
-## 4. Development principles
+## 6. Storage and computation policy
+
+SQLite is the initial persistent store.
+
+Persist data that is important, costly, or impossible to reproduce exactly,
+including when the corresponding phase requires it:
+
+* market candles;
+* approved strategy configurations;
+* important backtest summaries and selected trades;
+* demo and live trades;
+* production decisions;
+* relevant errors and health records.
+
+Normally keep reproducible temporary calculations in memory:
+
+* EMA and ATR columns;
+* temporary DataFrames;
+* intermediate experiment values;
+* debug output.
+
+Do not store every indicator or parameter variation in SQLite.
+
+The database schema evolves incrementally. Add a table only when the current
+phase needs it. Do not create speculative future tables.
+
+---
+
+## 7. Research and validation policy
+
+Research and production trading are independent.
+
+The production process uses a fixed approved configuration. Research may
+modify development candidates, test alternatives, and investigate degradation,
+but it does not directly control production.
+
+Candidate lifecycle:
+
+```text
+Hypothesis
+    ↓
+Development research
+    ↓
+Candidate with frozen rules and parameters
+    ↓
+Validation
+    ↓
+Out-of-sample evaluation
+    ↓
+Demo validation
+    ↓
+Manual or explicitly controlled approval
+    ↓
+Live
+```
+
+Historical datasets have different roles:
+
+* development data may be reused for strategy design and tuning;
+* validation data is evaluated with frozen rules and parameters;
+* out-of-sample data is evaluated only after a final candidate is selected.
+
+If logic or parameters change after validation results are observed, the result
+is a new candidate and must repeat validation. A validation period repeatedly
+used for tuning is no longer independent validation.
+
+Candidate selection should prefer:
+
+* positive results after fees and realistic slippage;
+* acceptable drawdown and losing streaks;
+* a reasonable number of trades;
+* consistency across subperiods;
+* stable neighboring parameter values;
+* understandable failure modes.
+
+Do not select a configuration only because it has the highest historical
+profit.
+
+---
+
+## 8. Strategy selection and automation
+
+The first complete cycle uses one strategy and one active configuration.
+
+Future research may examine different strategies for different regimes,
+volatility conditions, or sessions. This does not authorize automatic strategy
+switching now.
+
+Any future automated selection must have:
+
+* multiple independently validated strategies;
+* explicit selection rules;
+* out-of-sample evidence;
+* demo validation;
+* risk limits and safe fallback behavior;
+* an explicit roadmap decision authorizing activation.
+
+The system must never introduce a strategy only to remain continuously in the
+market.
+
+---
+
+## 9. Risk principles
+
+Profitability must always be evaluated together with risk.
+
+Before demo or live trading, explicitly define:
+
+* capital allocated to the system;
+* risk per trade;
+* maximum position size and leverage;
+* maximum daily and total drawdown;
+* maximum concurrent exposure;
+* pause and emergency-stop conditions;
+* exchange minimum-order and quantity-step constraints.
+
+The initial capital experiment may start with 10 USDT, but growing 10 USDT to
+100 USDT is an aspiration, not proof by itself that a strategy is robust. A
+strategy is judged by validated expectancy, drawdown, execution realism, and
+survival risk rather than one short profitable run.
+
+Risk, fee, slippage, and position-sizing calculations must each have one source
+of truth and must be shared by backtest, demo, and live execution where
+applicable.
+
+---
+
+## 10. Development principles
 
 ### KISS
-
-Keep the implementation as simple as possible.
 
 Prefer:
 
 * plain Python functions;
 * small focused modules;
+* direct readable control flow;
 * pandas for analysis;
 * SQLite for local persistence;
-* configuration files for parameters;
-* direct and readable control flow.
+* configuration files for parameters when parameters appear.
 
 Avoid unnecessary:
 
 * design patterns;
-* service layers;
-* interfaces with only one implementation;
-* abstract base classes without a current need;
-* dependency injection frameworks;
-* repository frameworks;
-* generic plugin systems;
+* service and repository layers;
+* abstract base classes with one implementation;
+* dependency-injection frameworks;
+* plugin systems;
 * complex event systems;
-* premature concurrency;
-* premature optimization.
+* premature concurrency or optimization.
 
-A new abstraction should be introduced only when existing code has demonstrated a real need for it.
+Introduce an abstraction only after a real current need is demonstrated.
 
 ### DRY
 
-Shared logic must have one source of truth.
+Shared behavior has one source of truth, especially:
 
-In particular:
+* strategy rules across backtest, demo, and live;
+* market-data requests and normalization;
+* indicator calculations;
+* active configuration;
+* risk, fee, slippage, and position-sizing calculations.
 
-* the same strategy logic should be used by backtest, demo, and live trading;
-* the same market-data client should support historical and incremental downloads;
-* indicators should not be implemented separately in different modules;
-* active configuration should be read from one defined source;
-* fee and risk calculations should not be duplicated.
-
-DRY does not mean creating a universal abstraction before duplication exists.
+DRY does not justify a universal abstraction before duplication exists.
 
 ### YAGNI
 
-Do not implement functionality only because it may be useful someday.
-
-Before adding a feature, determine:
+Before adding functionality, ask:
 
 1. What current problem does it solve?
-2. Which existing phase requires it?
+2. Which current roadmap task requires it?
 3. What is the simplest implementation?
 4. Can it be postponed without blocking current work?
 
-If a feature is only a future idea, document it but do not implement it.
+If the answer is only "maybe later", document the idea and do not implement it.
 
 ---
 
-## 5. Communication and decision rules
+## 11. Technical boundaries
 
-All significant changes must be explained before implementation.
+Current stack:
 
-For each new module, table, dependency, abstraction, or process, describe:
+* Python;
+* SQLite;
+* pandas;
+* direct Bybit API access.
 
-* what problem it solves;
-* why it is needed now;
-* what data it receives;
-* what result it returns;
-* which other modules depend on it;
-* what simpler alternatives were considered;
-* what is intentionally excluded.
+Current non-goals:
 
-The project must not silently drift into a different architecture.
+* high-frequency or tick-level trading;
+* order-book microstructure research;
+* machine learning and neural networks;
+* distributed or cloud infrastructure;
+* automatic deployment;
+* multiple exchanges;
+* a large multi-symbol portfolio;
+* automatic strategy replacement;
+* continuous parameter optimization;
+* a complex web dashboard.
 
-When a proposed change increases complexity, stop and discuss it before implementation.
+These boundaries may change only through an explicit roadmap revision. Do not
+implement them as preparation for hypothetical future needs.
 
-The agent must clearly distinguish:
-
-* current requirements;
-* assumptions;
-* future ideas;
-* optional improvements;
-* confirmed decisions.
-
-The agent should not treat a future possibility as a current requirement.
-
----
-
-## 6. System layers
-
-The system is divided into logical layers. These are responsibility boundaries, not a requirement to create deep class hierarchies.
-
-### 6.1 Data Layer
-
-Responsible for market data and persistence.
-
-Responsibilities:
-
-* verify public Bybit connectivity;
-* download historical candles;
-* incrementally download new closed candles;
-* store candles in SQLite;
-* avoid duplicates;
-* retrieve requested ranges;
-* provide data to research and trading processes.
-
-The Data Layer does not determine trends or generate trading signals.
-
-### 6.2 Research Layer
-
-Responsible for historical analysis.
-
-Responsibilities:
-
-* load selected historical periods;
-* calculate indicators;
-* examine market regimes;
-* run strategy experiments;
-* compare results;
-* investigate weaknesses;
-* produce strategy candidates.
-
-The Research Layer never sends real orders.
-
-### 6.3 Strategy Layer
-
-Responsible for trading rules.
-
-A strategy receives prepared market data and configuration parameters.
-
-It returns a decision such as:
-
-```text
-LONG
-SHORT
-NO_SIGNAL
-```
-
-It may also return:
-
-* reason for the signal;
-* stop-loss level;
-* take-profit level;
-* supporting values.
-
-The Strategy Layer does not communicate directly with Bybit or SQLite.
-
-### 6.4 Backtest Layer
-
-Responsible for simulating historical trading.
-
-Responsibilities:
-
-* apply a strategy sequentially to historical candles;
-* simulate entries and exits;
-* apply fees and slippage assumptions;
-* calculate position results;
-* produce a list of trades;
-* calculate performance metrics.
-
-Backtest must use the same strategy rules that will later be used in demo and live trading.
-
-### 6.5 Decision Layer
-
-Responsible for approved production state.
-
-Responsibilities:
-
-* identify the active strategy;
-* identify the active parameter configuration;
-* store strategy status;
-* determine whether trading is allowed;
-* distinguish active configurations from research candidates.
-
-Possible statuses may include:
-
-```text
-research
-candidate
-active_demo
-active_live
-paused
-rejected
-archived
-```
-
-The first version may use fewer statuses.
-
-The Decision Layer must not replace an active configuration merely because another configuration recently performed better.
-
-### 6.6 Trading Layer
-
-Responsible for demo and live execution.
-
-Responsibilities:
-
-* react to a new closed candle;
-* use the active approved strategy;
-* check whether trading is allowed;
-* calculate risk and position size;
-* submit orders;
-* check order results;
-* record trades and errors.
-
-Demo trading must be implemented before live trading.
-
-### 6.7 Monitoring Layer
-
-Responsible for system health.
-
-Responsibilities may include:
-
-* API connectivity;
-* arrival of new candles;
-* missing data;
-* failed orders;
-* open positions;
-* current drawdown;
-* strategy health;
-* system errors.
-
-Telegram or other notifications may be added later, but they are not part of the initial foundation.
+If performance becomes a problem, first measure the actual bottleneck and
+simplify the experiment before introducing infrastructure.
 
 ---
 
-## 7. Research and trading separation
+## 12. Agent and communication rules
 
-Research and trading are separate processes.
+Before implementation:
 
-The trading process uses a fixed approved configuration.
+1. Read this context.
+2. Read `roadmap.md`.
+3. Identify the current phase and active task.
+4. Inspect existing code and the working tree.
+5. Explain significant architectural changes before making them.
+6. Distinguish requirements, assumptions, future ideas, and optional work.
+7. Implement only the agreed current scope.
 
-The research process may:
+During and after implementation:
 
-* test other parameters;
-* test other strategies;
-* analyze recent degradation;
-* create challenger configurations.
+* preserve unrelated user changes;
+* reuse existing logic where appropriate;
+* avoid abstractions created only for appearance;
+* do not add major dependencies without explanation;
+* run checks proportional to the risk of the change;
+* update the roadmap after meaningful completed work;
+* record decisions that affect future phases;
+* do not claim completion without verification.
 
-Research must not directly alter the currently active strategy.
+If a proposed change materially increases complexity or alters approved trading
+behavior, stop and discuss it before implementation.
 
-The lifecycle is:
+Never:
 
-```text
-Active configuration
-        ↓
-Research produces candidate
-        ↓
-Historical validation
-        ↓
-Out-of-sample validation
-        ↓
-Demo validation
-        ↓
-Manual or explicitly controlled approval
-        ↓
-Candidate becomes active
-```
-
-Changing only parameters of the same strategy is still a strategy configuration change and must be validated.
-
----
-
-## 8. Strategy switching
-
-The long-term system may support different strategies for different market regimes or trading sessions.
-
-For example:
-
-```text
-Strong trend → Trend Pullback
-Sideways market → No trading
-High-volatility breakout → Breakout strategy
-```
-
-However, the first version must not automatically switch among many strategies.
-
-Initial behavior:
-
-```text
-UPTREND → consider Long Trend Pullback
-DOWNTREND → consider Short Trend Pullback
-SIDEWAYS → no trade
-```
-
-Strategy selection based on time of day, market regime, or volatility may be researched later.
-
-Such selection must be supported by historical evidence and validation. It must not be added only to keep the system trading continuously.
-
-The system is allowed to remain out of the market.
-
-Continuous operation does not mean continuous trading.
+* silently redesign the architecture;
+* implement future roadmap phases without request;
+* let research directly alter production state;
+* expose credentials or store secrets in source control;
+* claim or imply guaranteed trading profit.
 
 ---
 
-## 9. Research schedule
+## 13. Definition of success
 
-Research does not need to run continuously in the background.
+The first successful version is not a fully autonomous trading system.
 
-It may run:
+It consists of:
 
-* manually;
-* weekly;
-* monthly;
-* after enough new trades;
-* after a strategy health warning;
-* when investigating a specific hypothesis.
-
-Trading should remain lightweight and stable.
-
-Heavy parameter searches should run separately from live execution and should not interfere with receiving candles or managing positions.
-
----
-
-## 10. Hardware constraints
-
-The current laptop is sufficient for the intended first version.
-
-Reasonable workloads include:
-
-* storing several years of 15-minute and 1-hour ETHUSDT candles;
-* pandas calculations;
-* SQLite queries;
-* backtesting one strategy;
-* testing a moderate number of parameter combinations;
-* running a lightweight demo or live process.
-
-The project must avoid designs that assume:
-
-* massive parallel optimization;
-* tick-level datasets;
-* thousands of symbols;
-* continuous machine learning;
-* large in-memory datasets without need;
-* heavy research running at the same priority as live trading.
-
-If research becomes slow, first simplify the experiment:
-
-* reduce parameter combinations;
-* narrow the hypothesis;
-* cache reusable calculations;
-* run research outside trading hours;
-* profile the actual bottleneck.
-
-Do not add distributed or cloud architecture without evidence that local execution is insufficient.
-
----
-
-## 11. Data principles
-
-Raw market candles are the main source data.
-
-Permanent storage should contain data that is difficult or important to reproduce:
-
-* market candles;
-* approved strategy configurations;
-* important backtest results;
-* demo trades;
-* live trades;
-* system decisions;
-* relevant errors and health records.
-
-Temporary calculations should normally remain in memory:
-
-* EMA columns;
-* ATR columns;
-* temporary DataFrames;
-* intermediate optimization values;
-* debug output.
-
-Indicators should not be permanently stored for every possible parameter combination.
-
-Time should be stored consistently in UTC.
-
-Trading decisions must use only information available at that moment.
-
-Only closed candles should be used for initial strategy decisions.
-
----
-
-## 12. Database principles
-
-SQLite is the initial database.
-
-The database schema should be designed incrementally.
-
-Do not create all possible future tables at the beginning.
-
-The first schema should support the current phase.
-
-Tables should be added when the corresponding module is implemented.
-
-The first likely table is:
-
-```text
-market_candles
-```
-
-Future tables may include:
-
-```text
-strategies
-strategy_configs
-backtest_runs
-backtest_metrics
-backtest_trades
-demo_trades
-live_trades
-strategy_health
-```
-
-These names are planning references, not a requirement to create all tables immediately.
-
----
-
-## 13. Validation philosophy
-
-Historical data is separated by purpose.
-
-Example:
-
-```text
-2023–2024 → development and research
-2025 → validation
-2026 → out-of-sample evaluation
-```
-
-Exact date boundaries may be adjusted later.
-
-A validation period must not be repeatedly used to tune parameters while still being described as independent validation.
-
-The system should prefer:
-
-* stable parameter regions;
-* reasonable trade counts;
-* acceptable drawdown;
-* performance after fees;
-* consistency across periods.
-
-It should not select a configuration only because it has the highest historical profit.
-
----
-
-## 14. Initial implementation direction
-
-Development starts with the foundation:
-
-```text
-1. Verify Bybit public API connectivity.
-2. Inspect a real candle response.
-3. Decide which fields are needed.
-4. Design the initial SQLite candle table.
-5. Save a small real sample.
-6. Read the saved sample.
-7. Add historical range downloading.
-8. Add incremental candle updates.
-```
-
-Only after the Data Layer is usable should development proceed to:
-
-```text
-market regime
-strategy
-backtest
-parameter research
-demo trading
-monitoring
-```
-
----
-
-## 15. Agent working rules
-
-Before writing code, the agent should:
-
-1. Read this file.
-2. Read the current roadmap.
-3. Identify the active phase and task.
-4. Inspect existing code before creating new abstractions.
-5. Explain any architectural change.
-6. Implement only the current agreed scope.
-7. Run relevant checks.
-8. Update the roadmap after completing work.
-9. Record important decisions that affect future tasks.
-
-The agent must not:
-
-* implement future layers without request;
-* silently redesign the project;
-* duplicate existing logic;
-* create abstractions only for architectural appearance;
-* introduce major dependencies without explanation;
-* automatically change approved trading behavior;
-* claim completion if verification has not been performed.
-
----
-
-## 16. Definition of success
-
-The first successful version is not a perfectly autonomous trading system.
-
-The initial success criteria are:
-
-* reliable collection of ETHUSDT candles;
+* reliable and validated market data;
 * reproducible historical analysis;
-* understandable market-regime classification;
+* an understandable market-regime classification;
 * one transparent strategy;
-* a backtest with realistic fees and risk;
-* documented experiment results;
-* a validated candidate;
+* realistic backtesting with fees, slippage, and risk;
+* a candidate that passes validation and out-of-sample evaluation;
 * stable demo trading;
-* clear separation between research and execution.
+* explicit risk and recovery controls;
+* clear separation between research and execution;
+* observable decisions and system health.
 
-Live trading is a later milestone, not the starting point.
+Live trading is a later controlled milestone, not the starting point.
+
+---
+
+## 14. Architecture stability
+
+The architecture should remain stable, but it may evolve when a demonstrated
+current need cannot be handled cleanly by the existing responsibilities.
+
+When a proposed change affects multiple sections of this document,
+first determine whether the existing architecture can solve the problem
+with a simpler implementation.
+
+Prefer the smallest change that preserves clear responsibility boundaries.
+
+Extend an existing component when the new behavior belongs to the same
+responsibility. Introduce a focused component only when keeping the behavior
+in an existing component would blur responsibilities or create real
+duplication.
+
+After an architecture change is approved, update this document before or
+together with its implementation.

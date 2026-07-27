@@ -39,17 +39,17 @@ Statuses:
 ## Current phase
 
 ```text
-Phase 1 — Data foundation
+Phase 2 — Market analysis
 ```
 
 ## Current objective
 
-Create a reliable minimal Data Layer for ETHUSDT candles from Bybit.
+Determine the market regime using validated stored ETHUSDT data.
 
 ## Current active task
 
 ```text
-Validate the complete Phase 1 dataset and implementation.
+Define the initial indicator calculations for market-regime analysis.
 ```
 
 ## Current constraints
@@ -64,6 +64,7 @@ Validate the complete Phase 1 dataset and implementation.
 * Use pandas only where it is useful.
 * Initial timeframes: 15 minutes and 1 hour.
 * Initial symbol: ETHUSDT perpetual futures.
+* Phase 1 market data is complete from 2023-01-01 through the latest closed candle.
 
 ---
 
@@ -278,6 +279,8 @@ Research code can request a period without knowing Bybit API or SQLite implement
 ---
 
 ## Phase 1 completion criteria
+
+Status: completed on 2026-07-27.
 
 Phase 1 is complete when:
 
@@ -704,6 +707,8 @@ Add completed work in reverse chronological order.
 * Moved reusable Bybit request and normalization logic into `bybit_market_data.py`.
 * Added latest-candle lookup and incremental updates for `15m` and `1h`.
 * Added range-limited pandas data access for research code.
+* Downloaded and validated the complete `ETHUSDT` history from 2023-01-01.
+* Added a minimal README for the Data Layer commands and Python interface.
 
 ### Verified
 
@@ -726,10 +731,15 @@ Add completed work in reverse chronological order.
 * Real `15m` and `1h` ranges loaded with UTC datetime and numeric pandas types.
 * Empty ranges preserve the expected DataFrame schema and types.
 * Reversed and timezone-free date ranges are rejected.
+* `15m` contains 125,141 contiguous candles through 2026-07-27 13:00 UTC.
+* `1h` contains 31,285 contiguous candles through 2026-07-27 12:00 UTC.
+* Both datasets have zero gaps, duplicates, invalid OHLC rows, or unaligned timestamps.
+* SQLite integrity is `ok`; the database size is 18,157,568 bytes.
+* Full pandas loading took 1.204 seconds for `15m` and 0.348 seconds for `1h`.
 
 ### Next
 
-* Load and validate the complete ETHUSDT history before closing Phase 1.
+* Define and calculate the first EMA and ATR indicators for Phase 2.
 
 ## 2026-07-25
 

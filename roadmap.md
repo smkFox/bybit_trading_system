@@ -49,7 +49,7 @@ Create a reliable minimal Data Layer for ETHUSDT candles from Bybit.
 ## Current active task
 
 ```text
-Add pandas data access for analysis.
+Validate the complete Phase 1 dataset and implementation.
 ```
 
 ## Current constraints
@@ -265,11 +265,11 @@ After the database is initialized, future runs download only new candles.
 
 ### Tasks
 
-* [ ] Load a selected candle range into pandas.
-* [ ] Return correct datetime and numeric types.
-* [ ] Support symbol and timeframe filters.
-* [ ] Return data in chronological order.
-* [ ] Avoid loading the entire database when only a limited period is needed.
+* [x] Load a selected candle range into pandas.
+* [x] Return correct datetime and numeric types.
+* [x] Support symbol and timeframe filters.
+* [x] Return data in chronological order.
+* [x] Avoid loading the entire database when only a limited period is needed.
 
 ### Completion criteria
 
@@ -703,6 +703,7 @@ Add completed work in reverse chronological order.
 * Added bounded retries for temporary network, HTTP, and Bybit API errors.
 * Moved reusable Bybit request and normalization logic into `bybit_market_data.py`.
 * Added latest-candle lookup and incremental updates for `15m` and `1h`.
+* Added range-limited pandas data access for research code.
 
 ### Verified
 
@@ -722,10 +723,13 @@ Add completed work in reverse chronological order.
 * The `1h` updater inserted 630 missing candles and an immediate repeat inserted zero.
 * Empty symbol data stops with a clear instruction to run the historical downloader first.
 * Both stored latest times matched the latest fully closed candle; no duplicates were found.
+* Real `15m` and `1h` ranges loaded with UTC datetime and numeric pandas types.
+* Empty ranges preserve the expected DataFrame schema and types.
+* Reversed and timezone-free date ranges are rejected.
 
 ### Next
 
-* Add pandas data access for analysis.
+* Load and validate the complete ETHUSDT history before closing Phase 1.
 
 ## 2026-07-25
 

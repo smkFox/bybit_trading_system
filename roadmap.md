@@ -49,7 +49,7 @@ Create a reliable minimal Data Layer for ETHUSDT candles from Bybit.
 ## Current active task
 
 ```text
-Design the initial SQLite schema for market candles.
+Save and read a small real candle sample.
 ```
 
 ## Current constraints
@@ -163,12 +163,12 @@ The application can transform a real Bybit response into a clean chronological c
 
 ### Tasks
 
-* [ ] Define the `market_candles` table.
-* [ ] Define field types.
-* [ ] Define the unique candle key.
-* [ ] Decide how timestamps are stored.
-* [ ] Add minimal database initialization.
-* [ ] Avoid unrelated future tables.
+* [x] Define the `market_candles` table.
+* [x] Define field types.
+* [x] Define the unique candle key.
+* [x] Decide how timestamps are stored.
+* [x] Add minimal database initialization.
+* [x] Avoid unrelated future tables.
 
 ### Expected unique key
 
@@ -695,16 +695,20 @@ Add completed work in reverse chronological order.
 * Added UTC timestamp and numeric field conversion.
 * Added chronological sorting and exclusion of the currently open candle.
 * Added basic candle validation and a readable table output.
+* Added the minimal SQLite `market_candles` schema and database initialization.
 
 ### Verified
 
 * A real five-candle response produced four chronological closed candles and excluded one open candle.
 * A valid candle with no upper or lower wick passes OHLC validation.
 * Python compilation and whitespace checks pass.
+* Database initialization succeeds repeatedly without errors.
+* The database contains only `market_candles` with the expected field types.
+* The composite primary key is `symbol`, `timeframe`, and `open_time`.
 
 ### Next
 
-* Design the minimal `market_candles` SQLite schema.
+* Save and read a small real candle sample.
 
 ## 2026-07-25
 

@@ -49,7 +49,7 @@ Create a reliable minimal Data Layer for ETHUSDT candles from Bybit.
 ## Current active task
 
 ```text
-Inspect and normalize real Bybit candle data.
+Design the initial SQLite schema for market candles.
 ```
 
 ## Current constraints
@@ -130,12 +130,12 @@ A small script successfully retrieves and displays real ETHUSDT candles.
 
 ### Tasks
 
-* [ ] Decide which returned fields are required.
-* [ ] Convert timestamps to UTC.
-* [ ] Convert prices and volumes to numeric values.
-* [ ] Sort candles in chronological order.
-* [ ] Separate closed candles from the currently open candle.
-* [ ] Define a simple internal candle representation.
+* [x] Decide which returned fields are required.
+* [x] Convert timestamps to UTC.
+* [x] Convert prices and volumes to numeric values.
+* [x] Sort candles in chronological order.
+* [x] Separate closed candles from the currently open candle.
+* [x] Define a simple internal candle representation.
 
 ### Expected candle fields
 
@@ -686,6 +686,25 @@ The planned candle-based workload does not require institutional infrastructure.
 # Work log
 
 Add completed work in reverse chronological order.
+
+## 2026-07-27
+
+### Completed
+
+* Added normalization of real Bybit candles into named dictionary fields.
+* Added UTC timestamp and numeric field conversion.
+* Added chronological sorting and exclusion of the currently open candle.
+* Added basic candle validation and a readable table output.
+
+### Verified
+
+* A real five-candle response produced four chronological closed candles and excluded one open candle.
+* A valid candle with no upper or lower wick passes OHLC validation.
+* Python compilation and whitespace checks pass.
+
+### Next
+
+* Design the minimal `market_candles` SQLite schema.
 
 ## 2026-07-25
 

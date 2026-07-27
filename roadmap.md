@@ -49,7 +49,7 @@ Create a reliable minimal Data Layer for ETHUSDT candles from Bybit.
 ## Current active task
 
 ```text
-Build the historical candle range downloader.
+Build the incremental candle updater.
 ```
 
 ## Current constraints
@@ -203,14 +203,14 @@ A real downloaded sample survives a save/read cycle without data loss or duplica
 
 ### Tasks
 
-* [ ] Accept symbol, timeframe, start, and end parameters.
-* [ ] Split the requested period into API-sized requests.
-* [ ] Continue until the full period is retrieved.
-* [ ] Save results incrementally.
-* [ ] Avoid duplicate rows.
-* [ ] Log progress simply.
-* [ ] Handle temporary request errors.
-* [ ] Allow safe restart after interruption.
+* [x] Accept symbol, timeframe, start, and end parameters.
+* [x] Split the requested period into API-sized requests.
+* [x] Continue until the full period is retrieved.
+* [x] Save results incrementally.
+* [x] Avoid duplicate rows.
+* [x] Log progress simply.
+* [x] Handle temporary request errors.
+* [x] Allow safe restart after interruption.
 
 ### Initial target
 
@@ -698,6 +698,9 @@ Add completed work in reverse chronological order.
 * Added the minimal SQLite `market_candles` schema and database initialization.
 * Added SQLite saving and chronological reading by symbol, timeframe, and date range.
 * Added a real-data storage check with repeated insertion.
+* Added parameterized candle requests for `15m` and `1h`.
+* Added a backward-paginating historical downloader with incremental page saves.
+* Added bounded retries for temporary network, HTTP, and Bybit API errors.
 
 ### Verified
 
@@ -710,10 +713,13 @@ Add completed work in reverse chronological order.
 * Four real closed candles survived a save/read cycle without value changes.
 * Repeated insertion added zero rows and created no duplicates.
 * A selected date range returned the expected candles in chronological order.
+* A three-page `15m` range stored 9 candles with no gaps; a repeated download inserted zero rows.
+* A three-page `1h` range stored 6 candles with no gaps.
+* A simulated temporary timeout was retried and then completed successfully.
 
 ### Next
 
-* Build the historical candle range downloader.
+* Build the incremental candle updater.
 
 ## 2026-07-25
 

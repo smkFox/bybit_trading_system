@@ -1,49 +1,121 @@
 import json
 import math
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 
 import requests
+
+from time_utils import datetime_to_milliseconds, milliseconds_to_datetime
 
 
 API_URL = "https://api.bybit.com/v5/market/kline"
 SYMBOL = "ETHUSDT"
 CATEGORY = "linear"
-INTERVAL = "15"
-INTERVAL_MINUTES = 15
 TIMEFRAME = "15m"
 CANDLE_LIMIT = 5
+MAX_CANDLE_LIMIT = 1000
 REQUEST_TIMEOUT_SECONDS = 10
-REQUEST_PARAMS = {
-    "category": CATEGORY,
-    "symbol": SYMBOL,
-    "interval": INTERVAL,
-    "limit": CANDLE_LIMIT,
+MAX_REQUEST_ATTEMPTS = 3
+RETRY_DELAY_SECONDS = 1
+RETRYABLE_HTTP_STATUS_CODES = {429, 500, 502, 503, 504}
+RETRYABLE_BYBIT_CODES = {429, 10000, 10006, 10016}
+TIMEFRAMES = {
+    "15m": {"api_interval": "15", "minutes": 15},
+    "1h": {"api_interval": "60", "minutes": 60},
 }
 
 
-def fetch_candle_payload() -> dict:
-    response = requests.get(
-        API_URL,
-        params=REQUEST_PARAMS,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
-    print(f"HTTP status: {response.status_code}")
-    response.raise_for_status()
-    payload = response.json()
+def build_candle_request_params(
+    symbol: str,
+    timeframe: str,
+    limit: int,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+) -> dict:
+    if timeframe not in TIMEFRAMES:
+        raise ValueError(f"Unsupported timeframe: {timeframe}.")
+    if not 1 <= limit <= MAX_CANDLE_LIMIT:
+        raise ValueError(f"Candle limit must be between 1 and {MAX_CANDLE_LIMIT}.")
+    if start_time is not None and end_time is not None and start_time > end_time:
+        raise ValueError("Start time must not be later than end time.")
 
-    if payload.get("retCode") != 0:
+    params = {
+        "category": CATEGORY,
+        "symbol": symbol.upper(),
+        "interval": TIMEFRAMES[timeframe]["api_interval"],
+        "limit": limit,
+    }
+    if start_time is not None:
+        params["start"] = datetime_to_milliseconds(start_time)
+    if end_time is not None:
+        params["end"] = datetime_to_milliseconds(end_time)
+
+    return params
+
+
+def fetch_candle_payload(
+    symbol: str = SYMBOL,
+    timeframe: str = TIMEFRAME,
+    limit: int = CANDLE_LIMIT,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+) -> dict:
+    params = build_candle_request_params(
+        symbol=symbol,
+        timeframe=timeframe,
+        limit=limit,
+        start_time=start_time,
+        end_time=end_time,
+    )
+
+    for attempt in range(1, MAX_REQUEST_ATTEMPTS + 1):
+        try:
+            response = requests.get(
+                API_URL,
+                params=params,
+                timeout=REQUEST_TIMEOUT_SECONDS,
+            )
+        except (requests.ConnectionError, requests.Timeout):
+            if attempt == MAX_REQUEST_ATTEMPTS:
+                raise
+            time.sleep(RETRY_DELAY_SECONDS * attempt)
+            continue
+
+        if response.status_code in RETRYABLE_HTTP_STATUS_CODES:
+            if attempt == MAX_REQUEST_ATTEMPTS:
+                response.raise_for_status()
+            time.sleep(RETRY_DELAY_SECONDS * attempt)
+            continue
+
+        response.raise_for_status()
+        payload = response.json()
+        return_code = payload.get("retCode")
+
+        if return_code == 0:
+            return payload
+        if return_code in RETRYABLE_BYBIT_CODES and attempt < MAX_REQUEST_ATTEMPTS:
+            time.sleep(RETRY_DELAY_SECONDS * attempt)
+            continue
+
         raise ValueError(
-            f"Bybit API error: {payload.get('retMsg', 'unknown error')}"
+            f"Bybit API error {return_code}: "
+            f"{payload.get('retMsg', 'unknown error')}"
         )
 
-    return payload
+    raise RuntimeError("Bybit request attempts ended unexpectedly.")
 
 
 def normalize_candles(
     payload: dict,
     current_time: datetime,
+    timeframe: str = TIMEFRAME,
 ) -> list[dict]:
+    if timeframe not in TIMEFRAMES:
+        raise ValueError(f"Unsupported timeframe: {timeframe}.")
+    if current_time.tzinfo is None or current_time.utcoffset() is None:
+        raise ValueError("Current time must include a timezone.")
+
     result = payload.get("result", {})
     symbol = result.get("symbol")
     raw_candles = result.get("list", [])
@@ -62,10 +134,7 @@ def normalize_candles(
                 f"Expected 7 candle values, received {len(raw_candle)}."
             )
 
-        open_time = datetime.fromtimestamp(
-            int(raw_candle[0]) / 1000,
-            tz=timezone.utc,
-        )
+        open_time = milliseconds_to_datetime(int(raw_candle[0]))
         open_price = float(raw_candle[1])
         high_price = float(raw_candle[2])
         low_price = float(raw_candle[3])
@@ -95,14 +164,15 @@ def normalize_candles(
             raise ValueError(f"Duplicate candle at {open_time.isoformat()}.")
 
         seen_open_times.add(open_time)
-        close_time = open_time + timedelta(minutes=INTERVAL_MINUTES)
+        interval_minutes = TIMEFRAMES[timeframe]["minutes"]
+        close_time = open_time + timedelta(minutes=interval_minutes)
         if close_time > current_time:
             continue
 
         normalized_candles.append(
             {
                 "symbol": symbol,
-                "timeframe": TIMEFRAME,
+                "timeframe": timeframe,
                 "open_time": open_time,
                 "open": open_price,
                 "high": high_price,
@@ -140,8 +210,13 @@ def print_candle_table(candles: list[dict]) -> None:
 
 
 def main() -> None:
+    request_params = build_candle_request_params(
+        symbol=SYMBOL,
+        timeframe=TIMEFRAME,
+        limit=CANDLE_LIMIT,
+    )
     print(f"Request: GET {API_URL}")
-    print(f"Parameters: {REQUEST_PARAMS}")
+    print(f"Parameters: {request_params}")
 
     try:
         payload = fetch_candle_payload()
@@ -158,8 +233,10 @@ def main() -> None:
         raise SystemExit(1)
 
     start_times = [int(candle[0]) for candle in raw_candles]
-    newest_start = datetime.fromtimestamp(start_times[0] / 1000, tz=timezone.utc)
-    newest_close = newest_start + timedelta(minutes=INTERVAL_MINUTES)
+    newest_start = milliseconds_to_datetime(start_times[0])
+    newest_close = newest_start + timedelta(
+        minutes=TIMEFRAMES[TIMEFRAME]["minutes"]
+    )
     now = datetime.now(timezone.utc)
 
     print("Inspection summary:")

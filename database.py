@@ -1,6 +1,8 @@
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
+
+from time_utils import datetime_to_milliseconds, milliseconds_to_datetime
 
 
 DATABASE_PATH = Path(__file__).resolve().parent / "data" / "market_data.sqlite3"
@@ -26,13 +28,6 @@ def initialize_database(database_path: Path = DATABASE_PATH) -> None:
 
     with sqlite3.connect(database_path) as connection:
         connection.execute(CREATE_MARKET_CANDLES_TABLE)
-
-
-def datetime_to_milliseconds(value: datetime) -> int:
-    if value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError("Candle time must include a timezone.")
-
-    return int(value.timestamp() * 1000)
 
 
 def save_candles(
@@ -118,10 +113,7 @@ def read_candles(
         {
             "symbol": row["symbol"],
             "timeframe": row["timeframe"],
-            "open_time": datetime.fromtimestamp(
-                row["open_time"] / 1000,
-                tz=timezone.utc,
-            ),
+            "open_time": milliseconds_to_datetime(row["open_time"]),
             "open": row["open"],
             "high": row["high"],
             "low": row["low"],

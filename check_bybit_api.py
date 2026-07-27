@@ -14,6 +14,30 @@ INTERVAL_MINUTES = 15
 TIMEFRAME = "15m"
 CANDLE_LIMIT = 5
 REQUEST_TIMEOUT_SECONDS = 10
+REQUEST_PARAMS = {
+    "category": CATEGORY,
+    "symbol": SYMBOL,
+    "interval": INTERVAL,
+    "limit": CANDLE_LIMIT,
+}
+
+
+def fetch_candle_payload() -> dict:
+    response = requests.get(
+        API_URL,
+        params=REQUEST_PARAMS,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    print(f"HTTP status: {response.status_code}")
+    response.raise_for_status()
+    payload = response.json()
+
+    if payload.get("retCode") != 0:
+        raise ValueError(
+            f"Bybit API error: {payload.get('retMsg', 'unknown error')}"
+        )
+
+    return payload
 
 
 def normalize_candles(
@@ -116,38 +140,17 @@ def print_candle_table(candles: list[dict]) -> None:
 
 
 def main() -> None:
-    params = {
-        "category": CATEGORY,
-        "symbol": SYMBOL,
-        "interval": INTERVAL,
-        "limit": CANDLE_LIMIT,
-    }
-
     print(f"Request: GET {API_URL}")
-    print(f"Parameters: {params}")
+    print(f"Parameters: {REQUEST_PARAMS}")
 
     try:
-        response = requests.get(
-            API_URL,
-            params=params,
-            timeout=REQUEST_TIMEOUT_SECONDS,
-        )
-        print(f"HTTP status: {response.status_code}")
-        response.raise_for_status()
-        payload = response.json()
-    except requests.RequestException as error:
+        payload = fetch_candle_payload()
+    except (requests.RequestException, ValueError) as error:
         print(f"Bybit request failed: {error}", file=sys.stderr)
         raise SystemExit(1) from error
 
     print("Raw JSON response:")
     print(json.dumps(payload, indent=2, ensure_ascii=False))
-
-    if payload.get("retCode") != 0:
-        print(
-            f"Bybit API error: {payload.get('retMsg', 'unknown error')}",
-            file=sys.stderr,
-        )
-        raise SystemExit(1)
 
     raw_candles = payload.get("result", {}).get("list", [])
     if not raw_candles:

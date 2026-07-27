@@ -49,7 +49,7 @@ Create a reliable minimal Data Layer for ETHUSDT candles from Bybit.
 ## Current active task
 
 ```text
-Save and read a small real candle sample.
+Build the historical candle range downloader.
 ```
 
 ## Current constraints
@@ -186,12 +186,12 @@ The database can be initialized repeatedly without errors.
 
 ### Tasks
 
-* [ ] Save downloaded candles to SQLite.
-* [ ] Read them back by symbol and timeframe.
-* [ ] Read a selected date range.
-* [ ] Confirm chronological ordering.
-* [ ] Repeat insertion and confirm that duplicates are not created.
-* [ ] Print a simple summary.
+* [x] Save downloaded candles to SQLite.
+* [x] Read them back by symbol and timeframe.
+* [x] Read a selected date range.
+* [x] Confirm chronological ordering.
+* [x] Repeat insertion and confirm that duplicates are not created.
+* [x] Print a simple summary.
 
 ### Completion criteria
 
@@ -696,6 +696,8 @@ Add completed work in reverse chronological order.
 * Added chronological sorting and exclusion of the currently open candle.
 * Added basic candle validation and a readable table output.
 * Added the minimal SQLite `market_candles` schema and database initialization.
+* Added SQLite saving and chronological reading by symbol, timeframe, and date range.
+* Added a real-data storage check with repeated insertion.
 
 ### Verified
 
@@ -705,10 +707,13 @@ Add completed work in reverse chronological order.
 * Database initialization succeeds repeatedly without errors.
 * The database contains only `market_candles` with the expected field types.
 * The composite primary key is `symbol`, `timeframe`, and `open_time`.
+* Four real closed candles survived a save/read cycle without value changes.
+* Repeated insertion added zero rows and created no duplicates.
+* A selected date range returned the expected candles in chronological order.
 
 ### Next
 
-* Save and read a small real candle sample.
+* Build the historical candle range downloader.
 
 ## 2026-07-25
 

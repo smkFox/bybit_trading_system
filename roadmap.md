@@ -49,7 +49,7 @@ Create a reliable minimal Data Layer for ETHUSDT candles from Bybit.
 ## Current active task
 
 ```text
-Build the incremental candle updater.
+Add pandas data access for analysis.
 ```
 
 ## Current constraints
@@ -233,13 +233,13 @@ A requested historical range is downloaded once and can be reused locally.
 
 ### Tasks
 
-* [ ] Read the latest stored candle time.
-* [ ] Calculate the missing range.
-* [ ] Request only missing or overlapping recent candles.
-* [ ] Store only closed candles.
-* [ ] Avoid duplicates.
-* [ ] Report whether new candles were added.
-* [ ] Support both 15m and 1h.
+* [x] Read the latest stored candle time.
+* [x] Calculate the missing range.
+* [x] Request only missing or overlapping recent candles.
+* [x] Store only closed candles.
+* [x] Avoid duplicates.
+* [x] Report whether new candles were added.
+* [x] Support both 15m and 1h.
 
 ### Intended behavior
 
@@ -701,6 +701,8 @@ Add completed work in reverse chronological order.
 * Added parameterized candle requests for `15m` and `1h`.
 * Added a backward-paginating historical downloader with incremental page saves.
 * Added bounded retries for temporary network, HTTP, and Bybit API errors.
+* Moved reusable Bybit request and normalization logic into `bybit_market_data.py`.
+* Added latest-candle lookup and incremental updates for `15m` and `1h`.
 
 ### Verified
 
@@ -716,10 +718,14 @@ Add completed work in reverse chronological order.
 * A three-page `15m` range stored 9 candles with no gaps; a repeated download inserted zero rows.
 * A three-page `1h` range stored 6 candles with no gaps.
 * A simulated temporary timeout was retried and then completed successfully.
+* The `15m` updater inserted 3 missing candles and an immediate repeat inserted zero.
+* The `1h` updater inserted 630 missing candles and an immediate repeat inserted zero.
+* Empty symbol data stops with a clear instruction to run the historical downloader first.
+* Both stored latest times matched the latest fully closed candle; no duplicates were found.
 
 ### Next
 
-* Build the incremental candle updater.
+* Add pandas data access for analysis.
 
 ## 2026-07-25
 

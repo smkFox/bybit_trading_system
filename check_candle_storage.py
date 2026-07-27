@@ -4,21 +4,25 @@ from datetime import datetime, timezone
 
 import requests
 
-from check_bybit_api import (
-    SYMBOL,
-    TIMEFRAME,
-    fetch_candle_payload,
-    normalize_candles,
-)
+from bybit_market_data import fetch_candle_payload, normalize_candles
 from database import initialize_database, read_candles, save_candles
+
+
+SYMBOL = "ETHUSDT"
+TIMEFRAME = "15m"
+CANDLE_LIMIT = 5
 
 
 def main() -> None:
     initialize_database()
 
-    payload = fetch_candle_payload()
+    payload = fetch_candle_payload(SYMBOL, TIMEFRAME, CANDLE_LIMIT)
     raw_candle_count = len(payload["result"]["list"])
-    candles = normalize_candles(payload, datetime.now(timezone.utc))
+    candles = normalize_candles(
+        payload,
+        datetime.now(timezone.utc),
+        TIMEFRAME,
+    )
     if not candles:
         raise ValueError("Bybit returned no closed candles to store.")
 

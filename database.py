@@ -72,6 +72,26 @@ def save_candles(
         return connection.total_changes - before_changes
 
 
+def get_latest_candle_time(
+    symbol: str,
+    timeframe: str,
+    database_path: Path = DATABASE_PATH,
+) -> datetime | None:
+    with sqlite3.connect(database_path) as connection:
+        row = connection.execute(
+            """
+            SELECT MAX(open_time)
+            FROM market_candles
+            WHERE symbol = ? AND timeframe = ?
+            """,
+            (symbol, timeframe),
+        ).fetchone()
+
+    if row[0] is None:
+        return None
+    return milliseconds_to_datetime(row[0])
+
+
 def read_candles(
     symbol: str,
     timeframe: str,

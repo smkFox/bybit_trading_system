@@ -5,8 +5,12 @@ from datetime import datetime, timezone
 
 import requests
 
-from check_bybit_api import MAX_CANDLE_LIMIT, TIMEFRAMES, fetch_candle_payload
-from check_bybit_api import normalize_candles
+from bybit_market_data import (
+    MAX_CANDLE_LIMIT,
+    TIMEFRAMES,
+    fetch_candle_payload,
+    normalize_candles,
+)
 from database import initialize_database, save_candles
 from time_utils import datetime_to_milliseconds, milliseconds_to_datetime
 

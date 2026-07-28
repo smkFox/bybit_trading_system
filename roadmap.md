@@ -49,12 +49,12 @@ Define and implement the first transparent strategy hypothesis,
 ## Current active task
 
 ```text
-Write and freeze the exact first-version strategy specification.
+Define and freeze the concrete trading-decision model.
 ```
 
 ## Immediate path
 
-* [~] Define one conventional and explainable strategy.
+* [x] Define one conventional and explainable strategy.
 * [ ] Implement only the indicators required by that strategy.
 * [ ] Implement one deterministic trading-decision path.
 * [ ] Backtest it with realistic costs and Bybit constraints.
@@ -379,26 +379,26 @@ must be tested after costs and exchange constraints.
 
 ### Tasks
 
-* [ ] Define the exact 1h EMA trend-permission rules.
-* [ ] Define the exact 15m pullback rules.
-* [ ] Define the exact continuation-confirmation rules.
-* [ ] Define long-entry conditions.
-* [ ] Define short-entry conditions.
-* [ ] Define no-entry conditions.
-* [ ] Define when a decision is produced.
-* [ ] Define the executable entry timing and reference price.
-* [ ] Define stop-loss calculation.
-* [ ] Define take-profit calculation.
-* [ ] Define maximum holding time if required by the hypothesis.
-* [ ] Define behavior when a position is already open.
-* [ ] Decide whether long and short rules are symmetrical.
-* [ ] List every configurable parameter and its initial value.
-* [ ] Record a version identifier for the frozen specification.
+* [x] Define the exact 1h EMA trend-permission rules.
+* [x] Define the exact 15m pullback rules.
+* [x] Define the exact continuation-confirmation rules.
+* [x] Define long-entry conditions.
+* [x] Define short-entry conditions.
+* [x] Define no-entry conditions.
+* [x] Define when a decision is produced.
+* [x] Define the executable entry timing and reference price.
+* [x] Define stop-loss calculation.
+* [x] Define take-profit calculation.
+* [x] Define maximum holding time if required by the hypothesis.
+* [x] Define behavior when a position is already open.
+* [x] Decide whether long and short rules are symmetrical.
+* [x] List every configurable parameter and its initial value.
+* [x] Record a version identifier for the frozen specification.
 
 ### Completion criteria
 
-* [ ] Every entry, exit, and no-entry outcome can be derived from written rules.
-* [ ] No implementation choice is left implicit.
+* [x] Every entry, exit, and no-entry outcome can be derived from written rules.
+* [x] No strategy-rule choice is left implicit.
 
 ---
 
@@ -907,8 +907,8 @@ live trading.
 * [x] Revised the roadmap to focus on one strategy and the shortest controlled
   route to live trading.
 * [x] Deferred the general research platform and automatic strategy selection.
+* [x] Froze the EMA Trend Pullback v1 baseline specification.
 
 ## Next task
 
-* [~] Write and freeze the exact EMA Trend Pullback first-version
-  specification.
+* [~] Define and freeze the concrete trading-decision model.

@@ -2,10 +2,12 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from time_utils import datetime_to_milliseconds, milliseconds_to_datetime
+from .time_utils import datetime_to_milliseconds, milliseconds_to_datetime
 
 
-DATABASE_PATH = Path(__file__).resolve().parent / "data" / "market_data.sqlite3"
+DATABASE_PATH = (
+    Path(__file__).resolve().parent.parent / "data" / "market_data.sqlite3"
+)
 
 CREATE_MARKET_CANDLES_TABLE = """
 CREATE TABLE IF NOT EXISTS market_candles (

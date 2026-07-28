@@ -2,8 +2,8 @@ from datetime import datetime
 
 import pandas as pd
 
-from database import read_candles
-from time_utils import datetime_to_milliseconds
+from .database import read_candles
+from .time_utils import datetime_to_milliseconds
 
 
 CANDLE_COLUMNS = [

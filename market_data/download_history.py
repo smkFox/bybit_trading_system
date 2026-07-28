@@ -5,14 +5,14 @@ from datetime import datetime, timezone
 
 import requests
 
-from bybit_market_data import (
+from .bybit_market_data import (
     MAX_CANDLE_LIMIT,
     TIMEFRAMES,
     fetch_candle_payload,
     normalize_candles,
 )
-from database import initialize_database, save_candles
-from time_utils import datetime_to_milliseconds, milliseconds_to_datetime
+from .database import initialize_database, save_candles
+from .time_utils import datetime_to_milliseconds, milliseconds_to_datetime
 
 
 def download_historical_candles(

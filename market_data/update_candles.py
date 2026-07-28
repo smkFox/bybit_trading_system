@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 
 import requests
 
-from bybit_market_data import TIMEFRAMES, get_latest_closed_candle_time
-from database import get_latest_candle_time, initialize_database
-from download_history import download_historical_candles
+from .bybit_market_data import TIMEFRAMES, get_latest_closed_candle_time
+from .database import get_latest_candle_time, initialize_database
+from .download_history import download_historical_candles
 
 
 def update_candles(
@@ -27,7 +27,7 @@ def update_candles(
     if latest_stored is None:
         raise ValueError(
             f"No stored candles for {symbol} {timeframe}. "
-            "Run download_history.py first."
+            "Run python -m market_data.download_history first."
         )
 
     print(f"Symbol: {symbol}")

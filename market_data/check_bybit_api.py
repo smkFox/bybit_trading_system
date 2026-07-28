@@ -4,14 +4,14 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-from bybit_market_data import (
+from .bybit_market_data import (
     API_URL,
     build_candle_request_params,
     fetch_candle_payload,
     get_timeframe_minutes,
     normalize_candles,
 )
-from time_utils import milliseconds_to_datetime
+from .time_utils import milliseconds_to_datetime
 
 
 SYMBOL = "ETHUSDT"

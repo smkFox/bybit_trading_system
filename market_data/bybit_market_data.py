@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import requests
 
-from time_utils import datetime_to_milliseconds, milliseconds_to_datetime
+from .time_utils import datetime_to_milliseconds, milliseconds_to_datetime
 
 
 API_URL = "https://api.bybit.com/v5/market/kline"

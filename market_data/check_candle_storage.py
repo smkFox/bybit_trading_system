@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 
 import requests
 
-from bybit_market_data import fetch_candle_payload, normalize_candles
-from database import initialize_database, read_candles, save_candles
+from .bybit_market_data import fetch_candle_payload, normalize_candles
+from .database import initialize_database, read_candles, save_candles
 
 
 SYMBOL = "ETHUSDT"

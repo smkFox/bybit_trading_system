@@ -908,6 +908,7 @@ live trading.
   route to live trading.
 * [x] Deferred the general research platform and automatic strategy selection.
 * [x] Froze the EMA Trend Pullback v1 baseline specification.
+* [x] Reorganized the completed Data Layer into `market_data/`.
 
 ## Next task
 

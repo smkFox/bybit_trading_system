@@ -1,575 +1,914 @@
 # Project Roadmap
 
-## 1. Назначение документа
+## How to use this file
 
-Этот roadmap задаёт практический путь от готового слоя рыночных данных до
-первого контролируемого запуска торговой системы.
+This file tracks the implementation state of the project.
 
-Главная цель проекта — как можно быстрее проверить на реальных данных и затем
-в demo, способен ли один простой и прозрачный торговый подход работать после
-комиссий, проскальзывания и ограничений биржи.
+The stable project context and architectural principles are stored in
+`context.md`. Current setup and usage instructions are stored in `README.md`.
+The existing code and database schema remain the source of truth for what is
+actually implemented.
 
-Проект не является общей исследовательской платформой. Мы не пытаемся заранее
-построить универсальный движок, придумать множество стратегий или
-автоматизировать их выбор.
+This roadmap contains:
 
-Источники истины:
+* the current phase and active task;
+* completed work;
+* planned work;
+* completion criteria;
+* decisions that affect implementation;
+* deferred ideas;
+* the work log.
 
-- `context.md` — цели, архитектурные принципы и ограничения проекта;
-- `roadmap.md` — текущая последовательность работ;
-- `README.md` — фактически реализованные команды и возможности;
-- код и схема базы данных — фактическая реализация.
+The roadmap should be updated after every meaningful completed task.
 
-Статусы:
+Statuses:
 
-- `COMPLETED` — этап реализован и проверен;
-- `IN PROGRESS` — текущий этап;
-- `PLANNED` — следующий этап;
-- `DEFERRED` — сознательно отложено.
-
----
-
-## 2. Текущее состояние
-
-Текущий этап: **Phase 2 — First Strategy**.
-
-Phase 0 и Phase 1 завершены. Исторические данные ETHUSDT для интервалов 15m и
-1h загружены, проверены и доступны через единый слой чтения.
-
-Ближайшая цель — точно описать и реализовать первую версию стратегии
-**EMA Trend Pullback**, после чего провести последовательный backtest.
-
-Кратчайший рабочий путь:
-
-1. Зафиксировать точные правила одной стратегии.
-2. Реализовать только необходимые ей индикаторы.
-3. Реализовать стратегию без знания будущего.
-4. Провести реалистичный backtest на development-периоде.
-5. Выполнить только ограниченную корректировку.
-6. Заморозить конфигурацию и проверить validation/OOS-периоды.
-7. Запустить ту же логику в Bybit Demo Trading.
-8. Добавить обязательную безопасность и Telegram-мониторинг.
-9. При выполнении критериев перейти к малому controlled live.
-
-Важные ограничения:
-
-- на первом цикле используется один инструмент и одна стратегия;
-- трендовый фильтр является частью EMA Trend Pullback, а не отдельной
-  универсальной системой анализа рынка;
-- не создаётся общий framework для произвольных стратегий;
-- индикаторы добавляются только по необходимости;
-- стратегия использует только закрытые свечи;
-- backtest, demo и live должны использовать одинаковую стратегическую логику
-  и одинаковую модель решения;
-- смотреть и корректировать правила можно только на development-периоде
-  2023–2024;
-- данные 2025 и 2026 годов нельзя использовать для настройки стратегии.
+```text
+[ ] Not started
+[~] In progress
+[x] Completed
+[!] Blocked
+[-] Deferred
+```
 
 ---
 
-## 3. Phase 0 — Project Foundation
+# Current project state
 
-**Status: COMPLETED**
+## Current phase
 
-Реализовано:
+```text
+Phase 2 — First strategy
+```
 
-- создан Git-репозиторий;
-- настроено Python-окружение;
-- создан файл зависимостей;
-- добавлена проверка окружения;
-- определена локальная структура проекта;
-- создан основной контекст проекта;
-- зафиксированы базовые архитектурные принципы.
+## Current objective
 
-Результат этапа: проект можно воспроизводимо запускать и последовательно
-развивать.
+Define and implement the first transparent strategy hypothesis,
+**EMA Trend Pullback**, and prepare it for a realistic sequential backtest.
 
----
+## Current active task
 
-## 4. Phase 1 — Market Data Layer
+```text
+Write and freeze the exact first-version strategy specification.
+```
 
-**Status: COMPLETED — 2026-07-27**
+## Immediate path
 
-### 4.1 Реализованные возможности
+* [~] Define one conventional and explainable strategy.
+* [ ] Implement only the indicators required by that strategy.
+* [ ] Implement one deterministic trading-decision path.
+* [ ] Backtest it with realistic costs and Bybit constraints.
+* [ ] Make only limited, explainable adjustments on development data.
+* [ ] Freeze the configuration and run validation and out-of-sample tests.
+* [ ] Run the same strategy in Bybit Demo Trading.
+* [ ] Add required safety, monitoring, and Telegram reporting.
+* [ ] Make a separate decision about small controlled live trading.
 
-- проверка публичного Bybit API;
-- загрузка исторических свечей с пагинацией;
-- нормализация ответа API;
-- строгая валидация OHLCV;
-- хранение свечей в SQLite;
-- повторный запуск без дубликатов;
-- поиск отсутствующих диапазонов;
-- точечное дозаполнение пропусков;
-- регулярное обновление до последней полностью закрытой свечи;
-- единый read API для pandas;
-- диагностика базы данных;
-- CLI-команды для загрузки, обновления и проверки.
+## Current constraints
 
-### 4.2 Зафиксированный набор данных
-
-Инструмент:
-
-- category: `linear`;
-- symbol: `ETHUSDT`.
-
-Интервал 15m:
-
-- 125 141 свеча;
-- начало: `2023-01-01 00:00 UTC`;
-- конец: `2026-07-27 13:00 UTC`.
-
-Интервал 1h:
-
-- 31 285 свечей;
-- начало: `2023-01-01 00:00 UTC`;
-- конец: `2026-07-27 12:00 UTC`.
-
-### 4.3 Результаты контрольной проверки
-
-- пропуски: 0;
-- дубликаты: 0;
-- некорректные OHLC: 0;
-- смещённые timestamps: 0;
-- SQLite integrity check: `ok`;
-- размер базы: 18 157 568 байт;
-- полная загрузка 15m в pandas: 1.204 s;
-- полная загрузка 1h в pandas: 0.348 s.
-
-Результат этапа: слой данных готов для первой стратегии и backtest.
+* Keep the implementation simple and local.
+* Use real stored Bybit data.
+* Initial exchange: Bybit.
+* Initial market: USDT perpetual futures.
+* Initial symbol: `ETHUSDT`.
+* Signal timeframe: `15m`.
+* Trend timeframe: `1h`.
+* Use UTC for all market timestamps.
+* Use only fully closed candles.
+* Start with one strategy and one approved configuration.
+* Treat the trend filter as part of EMA Trend Pullback, not as a separate
+  universal market-analysis framework.
+* Do not build a generic strategy engine before it is needed.
+* Backtest, demo, and live must use the same strategy implementation and
+  decision model.
+* Strategy development and review may use only 2023–2024 data.
+* Do not inspect 2025 or 2026 results while changing strategy rules or
+  parameters.
+* An initial 10 USDT account must be evaluated against actual Bybit execution
+  constraints.
+* Profit is an objective, not a guaranteed daily or monthly outcome.
 
 ---
 
-## 5. Phase 2 — First Strategy
+# Phase 0 — Environment and project setup
 
-**Status: IN PROGRESS**
+Status: [x] Completed
 
-Цель этапа — получить одну полностью определённую и воспроизводимую стратегию,
-которую можно одинаково запускать в backtest, demo и live.
+## Goal
 
-Первая стратегия: **EMA Trend Pullback**.
+Prepare a minimal and reproducible Python development environment.
 
-Это обычная, понятная гипотеза из семейства trend-following. Её выбор не
-означает, что прибыльность уже доказана. Она должна пройти проверку данными,
-издержками и последующим demo-запуском.
+## Tasks
 
-### 5.1 Зафиксировать спецификацию стратегии
+* [x] Install VS Code.
+* [x] Install or verify Python.
+* [x] Create the project folder.
+* [x] Create a virtual environment.
+* [x] Select the virtual environment in VS Code.
+* [x] Create `.gitignore`.
+* [x] Create a private Git repository.
+* [x] Add initial dependency configuration.
+* [x] Add an environment check.
+* [x] Add `context.md`.
+* [x] Add `roadmap.md`.
+* [x] Define the initial local project structure.
 
-До написания стратегии необходимо письменно определить:
+## Completion criteria
 
-- используемые таймфреймы;
-- точные периоды и формулы индикаторов;
-- условия разрешения long и short;
-- определение pullback;
-- условие подтверждения продолжения движения;
-- условие отсутствия входа;
-- момент формирования сигнала;
-- момент и опорную цену входа;
-- правила stop-loss;
-- правила take-profit;
-- максимальное время удержания, если оно требуется;
-- поведение при уже открытой позиции;
-- правила симметрии или различия long/short;
-- все изменяемые параметры и их начальные значения.
-
-Планируемая структура первой версии:
-
-- 1h EMA определяют разрешённое направление;
-- закрытые 15m свечи определяют pullback и подтверждение;
-- ATR может использоваться для stop-loss и take-profit, если это будет
-  зафиксировано в спецификации;
-- при отсутствии полного набора условий вход не создаётся.
-
-### 5.2 Зафиксировать модель торгового решения
-
-Стратегия возвращает явное торговое решение, а не неформальный набор флагов.
-Конкретная модель решения определяется и замораживается вместе со
-спецификацией первой версии.
-
-Результат стратегии должен позволять однозначно восстановить:
-
-- время принятия решения;
-- требуемое действие или отсутствие действия;
-- направление, если оно применимо;
-- опорную цену входа;
-- stop-loss и take-profit, если они применимы;
-- причину решения;
-- значения ключевых индикаторов;
-- идентификатор конфигурации стратегии.
-
-Модель должна допускать дальнейшее расширение без изменения принципов из
-`context.md`.
-
-### 5.3 Реализовать только необходимые индикаторы
-
-Требования:
-
-- точные и проверяемые формулы EMA и ATR;
-- явный warm-up период;
-- предсказуемое поведение при недостатке истории;
-- расчёт в памяти поверх DataFrame;
-- отсутствие записи производных индикаторов в SQLite;
-- отсутствие доступа к будущим свечам.
-
-Отдельная библиотека индикаторов создаётся только в объёме, который реально
-нужен первой стратегии.
-
-### 5.4 Согласовать таймфреймы без look-ahead
-
-Для каждой закрытой 15m свечи стратегия может использовать только последнюю
-1h свечу, которая уже была полностью закрыта в этот момент.
-
-Нужно проверить:
-
-- UTC timestamps;
-- границы часовых свечей;
-- отсутствие использования незакрытой 1h свечи;
-- одинаковое выравнивание в backtest, demo и live.
-
-### 5.5 Реализовать стратегию
-
-Требования:
-
-- один детерминированный путь вычисления решения;
-- отсутствие сетевых запросов внутри стратегии;
-- отсутствие прямой работы с биржей или Telegram;
-- отсутствие скрытой зависимости от режима запуска;
-- одинаковый результат на одинаковом наборе данных и конфигурации;
-- возможность объяснить каждое решение сохранёнными значениями.
-
-### 5.6 Провести ограниченную проверку реализации
-
-До полноценного backtest допускается небольшая проверка нескольких участков
-только из периода 2023–2024.
-
-Проверяется:
-
-- соответствие кода письменным правилам;
-- корректный момент сигнала и входа;
-- корректное выравнивание 15m и 1h;
-- отсутствие look-ahead;
-- корректное поведение warm-up;
-- объяснимость решений.
-
-Эта проверка не используется для визуального подбора выгодных условий.
-Данные 2025 и 2026 годов на этом этапе не просматриваются.
-
-Результат Phase 2: зафиксированная стратегия, готовая к честному backtest.
+* [x] The project opens correctly in VS Code.
+* [x] Python uses the local virtual environment.
+* [x] Dependencies can be installed from the dependency file.
+* [x] The environment check runs successfully.
+* [x] Project context is stored in the repository.
 
 ---
 
-## 6. Phase 3 — Backtest
+# Phase 1 — Data foundation
 
-**Status: PLANNED**
+Status: [x] Completed on 2026-07-27
 
-Цель — проверить первую стратегию в последовательной симуляции с реальными
-ограничениями исполнения.
+## Goal
 
-### 6.1 Последовательный симулятор
+Create a reliable local source of historical and current closed ETHUSDT
+candles.
 
-Backtest обрабатывает свечи по времени и не знает будущего.
+## 1.1 Verify Bybit connectivity
 
-Необходимо определить:
+### Tasks
 
-- исполнение входа на следующей доступной цене или по другому заранее
-  зафиксированному правилу;
-- порядок проверки stop-loss и take-profit;
-- консервативное правило для свечи, внутри которой могли быть задеты оба
-  уровня;
-- запрет перекрывающихся позиций, если стратегия явно не разрешает иное;
-- правила выхода по времени или обратному решению, если они предусмотрены.
+* [x] Identify the public Bybit endpoint for perpetual kline data.
+* [x] Send a minimal request without API keys.
+* [x] Request a small ETHUSDT candle sample.
+* [x] Print and inspect the raw response.
+* [x] Confirm that access works from the current network.
+* [x] Confirm the requested market category and symbol.
+* [x] Document response ordering, timestamp format, numeric strings, current
+  candle behavior, and request limits.
 
-### 6.2 Издержки и исполнимость с капиталом 10 USDT
+### Completion criteria
 
-Backtest обязан учитывать:
-
-- торговые комиссии;
-- проскальзывание;
-- funding для позиций, пересекающих funding timestamp;
-- размер капитала;
-- риск на сделку;
-- расчёт размера позиции;
-- доступную маржу и выбранное плечо;
-- минимальный notional;
-- минимальное и максимальное количество;
-- шаг количества;
-- tick size цены;
-- округление цены и количества;
-- сделки, которые нельзя исполнить из-за ограничений биржи.
-
-Актуальные ограничения ETHUSDT необходимо получать из официального API или
-документации Bybit на момент реализации. Логика округления и проверки должна
-переиспользоваться в demo и live.
-
-Невозможная к исполнению сделка не считается обычной совершённой сделкой: она
-записывается отдельно с точной причиной.
-
-### 6.3 Метрики результата
-
-Минимальный отчёт:
-
-- количество сделок;
-- количество неисполняемых решений;
-- валовая и чистая прибыль;
-- общие комиссии;
-- общий funding;
-- win rate;
-- средний результат сделки;
-- expectancy;
-- profit factor;
-- maximum drawdown;
-- максимальная серия убытков;
-- доходность на капитал;
-- отдельные результаты long и short.
-
-### 6.4 Порядок запуска
-
-1. Короткий технический прогон на части 2023–2024.
-2. Исправление только ошибок симулятора и реализации.
-3. Полный development-backtest на 2023–2024.
-4. Сохранение конфигурации, метрик и списка сделок.
-
-Результат Phase 3: честный ответ, имеет ли первая версия стратегии смысл после
-издержек и ограничений капитала.
+* [x] A small script successfully retrieves and displays real ETHUSDT candles.
 
 ---
 
-## 7. Phase 4 — Limited Strategy Adjustment
+## 1.2 Inspect and normalize candle data
 
-**Status: PLANNED**
+### Tasks
 
-Цель — разрешить небольшой объём осмысленной настройки, не превращая проект в
-бесконечный поиск параметров.
+* [x] Select the required response fields.
+* [x] Convert timestamps to UTC.
+* [x] Convert prices and volumes to numeric values.
+* [x] Sort candles in chronological order.
+* [x] Separate closed candles from the currently open candle.
+* [x] Define one internal candle representation.
+* [x] Validate OHLC relationships and interval alignment.
 
-Разрешено:
+### Stored candle fields
 
-- исправлять обнаруженные логические ошибки;
-- проверить небольшое число заранее объяснимых вариантов параметров;
-- упростить правила, если часть условий не даёт пользы;
-- отказаться от стратегии, если результат явно неприемлем.
+```text
+symbol
+timeframe
+open_time
+open
+high
+low
+close
+volume
+turnover
+```
 
-Не разрешено:
+### Completion criteria
 
-- огромные parameter grids;
-- добавление множества фильтров для исправления каждой плохой сделки;
-- просмотр 2025 или 2026 года во время настройки;
-- изменение критерия успеха после просмотра результата;
-- бесконечная оптимизация одной и той же идеи.
-
-Все варианты сравниваются только на 2023–2024. После выбора итоговая
-конфигурация замораживается.
-
----
-
-## 8. Phase 5 — Validation
-
-**Status: PLANNED**
-
-Разделение данных:
-
-- development: 2023–2024;
-- validation: 2025;
-- out-of-sample: 2026 до последней доступной закрытой свечи.
-
-Порядок:
-
-1. Заморозить код стратегии, параметры и модель исполнения.
-2. Один раз запустить validation на 2025.
-3. Не настраивать стратегию по результату 2025.
-4. Запустить финальную OOS-проверку на 2026.
-5. Проверить не только PnL, но и просадку, серии убытков, стабильность по
-   периодам и фактическую исполнимость сделок.
-
-Если результат разваливается вне development-периода, стратегия не переходит
-в demo без отдельного решения и нового честного цикла.
-
-Результат Phase 5: независимая оценка того, сохранилась ли работоспособность
-после заморозки правил.
+* [x] A real Bybit response can be transformed into a clean chronological
+  candle collection.
+* [x] Invalid candles fail validation with an explicit error.
 
 ---
 
-## 9. Phase 6 — Bybit Demo Trading
+## 1.3 Design the initial SQLite schema
 
-**Status: PLANNED**
+### Tasks
 
-Цель — проверить ту же стратегию в реальном времени без риска реальных денег.
+* [x] Define the `market_candles` table.
+* [x] Define field types.
+* [x] Define the unique candle key.
+* [x] Decide how timestamps are stored.
+* [x] Add minimal database initialization.
+* [x] Avoid unrelated future tables.
 
-Необходимо:
+### Unique candle key
 
-- безопасно настроить API credentials;
-- при запуске синхронизировать локальное и биржевое состояние;
-- регулярно получать закрытые 15m и 1h свечи;
-- принимать решения только по утверждённой конфигурации;
-- рассчитывать и округлять размер позиции по тем же правилам, что в backtest;
-- отправлять и отслеживать demo-ордера;
-- сверять открытые ордера и позиции;
-- сохранять решения, заявки, исполнения и ошибки;
-- предотвращать повторный ордер на одну свечу;
-- корректно обрабатывать задержки и временную недоступность API;
-- восстанавливаться после перезапуска без потери состояния.
+```text
+symbol + timeframe + open_time
+```
 
-Минимальная безопасность уже на demo:
+### Completion criteria
 
-- журнал ошибок;
-- остановка после повторяющихся критических ошибок;
-- защита от дублирующих ордеров;
-- reconciliation локальной позиции с Bybit;
-- ручная постоянная пауза;
-- безопасное восстановление после рестарта.
-
-Demo-результаты сравниваются с ожидаемым поведением backtest: частота решений,
-цены входа, издержки, отклонения и причины пропущенных сделок.
+* [x] The database can be initialized repeatedly without errors.
+* [x] Duplicate candles cannot create duplicate records.
 
 ---
 
-## 10. Phase 7 — Monitoring, Safety and Telegram
+## 1.4 Save and read a small real sample
 
-**Status: PLANNED**
+### Tasks
 
-До live система должна контролировать:
+* [x] Save downloaded candles to SQLite.
+* [x] Read candles by symbol and timeframe.
+* [x] Read a selected date range.
+* [x] Confirm chronological ordering.
+* [x] Repeat insertion and confirm that duplicates are not created.
+* [x] Print a simple summary.
 
-- свежесть данных;
-- пропуски свечей;
-- доступность API;
-- состояние ордеров и позиций;
-- отклонение локального состояния от биржевого;
-- текущую просадку;
-- последовательность критических ошибок;
-- активность ручной паузы и emergency stop.
+### Completion criteria
 
-Telegram на первой версии остаётся каналом уведомлений и read-only
-текстовым dashboard.
-
-Минимальные уведомления:
-
-- запуск и остановка системы;
-- потеря актуальности данных;
-- критические ошибки;
-- включение паузы или emergency stop;
-- создание, исполнение, отмена и отклонение ордера;
-- открытие и закрытие позиции.
-
-Минимальная текстовая сводка:
-
-- количество сделок;
-- текущая открытая позиция и объём в обороте;
-- реализованный и нереализованный PnL;
-- комиссии и funding;
-- текущая просадка;
-- состояние системы и время последних актуальных данных.
-
-Telegram не принимает торговые решения и на этом этапе не является панелью
-удалённого управления.
+* [x] A real sample survives a save/read cycle without data loss or
+  duplication.
 
 ---
 
-## 11. Phase 8 — Small Controlled Live
+## 1.5 Historical range downloader
 
-**Status: PLANNED**
+### Tasks
 
-Переход к реальным деньгам возможен только после явного совместного решения.
+* [x] Accept symbol, timeframe, start, and end parameters.
+* [x] Split the requested period into API-sized requests.
+* [x] Continue until the complete period is retrieved.
+* [x] Save results incrementally.
+* [x] Avoid duplicate rows.
+* [x] Log progress simply.
+* [x] Handle temporary request errors.
+* [x] Allow safe restart after interruption.
+* [x] Detect missing ranges.
+* [x] Fill only the detected missing ranges.
 
-Предварительные условия:
+### Initial target
 
-- validation и OOS не выявили критического развала;
-- demo стабильно работает в течение заранее согласованного времени или числа
-  сделок;
-- реальные комиссии, funding, округление и ограничения Bybit проверены;
-- защита от дублей и reconciliation протестированы;
-- мониторинг и Telegram работают;
-- ручная пауза и emergency stop проверены;
-- подтверждены размер капитала и максимально допустимый убыток.
+```text
+ETHUSDT
+15m
+1h
+2023-01-01 through the latest available closed candle
+```
 
-Ограничения первого live:
+### Completion criteria
 
-- только ETHUSDT;
-- только одна утверждённая стратегия;
-- стартовый капитал около 10 USDT, только если ограничения Bybit позволяют
-  исполнять выбранную модель риска;
-- минимальный заранее утверждённый риск;
-- без автоматической смены стратегии;
-- без автоматической оптимизации;
-- все изменения конфигурации выполняются вручную и снова проходят проверку.
-
-Цель первого live — проверить корректность полного контура на реальных
-исполнениях. Рост капитала не считается гарантированным результатом.
-
----
-
-## 12. Дальнейшее развитие
-
-**Status: DEFERRED**
-
-Только после стабильной работы первой стратегии можно рассматривать:
-
-- другие простые и общепринятые стратегии;
-- сравнение нескольких стратегий по единому протоколу;
-- контролируемый выбор стратегии;
-- дополнительные торговые пары;
-- расширенный offline-анализ;
-- фильтры торговых сессий;
-- более подробный Telegram dashboard;
-- дополнительные метрики и отчёты.
-
-Каждая новая стратегия проходит тот же путь:
-
-1. точная спецификация;
-2. реализация без look-ahead;
-3. development-backtest;
-4. ограниченная настройка;
-5. заморозка;
-6. validation и OOS;
-7. demo;
-8. отдельное решение о live.
+* [x] A requested historical range is downloaded once and can be reused
+  locally.
+* [x] An interrupted or repeated run does not corrupt the dataset.
 
 ---
 
-## 13. Явно отложенные задачи
+## 1.6 Incremental updater
 
-В ближайший цикл не входят:
+### Tasks
 
-- machine learning;
-- tick data и order book research;
-- high-frequency trading;
-- multi-exchange;
-- большой portfolio framework;
-- облачная и распределённая инфраструктура;
-- plugin architecture;
-- непрерывная оптимизация параметров;
-- автономное создание или замена стратегий;
-- сложный графический dashboard.
+* [x] Read the latest stored candle time.
+* [x] Calculate the missing range.
+* [x] Request only missing or overlapping recent candles.
+* [x] Store only closed candles.
+* [x] Avoid duplicates.
+* [x] Report whether new candles were added.
+* [x] Support both 15m and 1h.
+* [x] Update all configured intervals through one reusable path.
 
-Эти задачи не должны усложнять путь к проверке первой стратегии.
+### Intended behavior
 
----
+```text
+Program starts
+    ↓
+Find latest stored candle
+    ↓
+Download missing closed candles
+    ↓
+Validate and save them
+    ↓
+Data is synchronized
+```
 
-## 14. Зафиксированные решения
+### Completion criteria
 
-- Система остаётся локальной и простой, пока этого достаточно.
-- Реальные данные и реалистичное исполнение важнее красивой теории.
-- Сначала проверяется одна обычная прозрачная стратегия.
-- Определение рыночного направления является частью этой стратегии.
-- Стратегия возвращает явное торговое решение; точная модель фиксируется в
-  спецификации текущей фазы.
-- Backtest является первым инструментом проверки, но не доказательством
-  будущей прибыли.
-- Validation, OOS и demo нельзя пропускать ради более быстрого live.
-- Одна и та же логика стратегии используется во всех режимах.
-- Offline research в будущем может предлагать варианты, но не управляет
-  торговлей напрямую.
-- Telegram до live должен обеспечивать наблюдаемость, но не принимать решения.
+* [x] Future runs download only new or explicitly missing closed candles.
 
 ---
 
-## 15. Журнал прогресса
+## 1.7 Data access for analysis
 
-### 2026-07-27
+### Tasks
 
-- завершена Phase 1;
-- загружены полные 15m и 1h данные ETHUSDT с 2023 года;
-- подтверждены непрерывность, целостность и скорость чтения;
-- документация приведена в соответствие с фактической реализацией;
-- roadmap сокращён до практического пути от одной стратегии к controlled live;
-- общая исследовательская платформа и автоматический выбор стратегий отложены.
+* [x] Load a selected candle range into pandas.
+* [x] Return correct datetime and numeric types.
+* [x] Support symbol and timeframe filters.
+* [x] Return data in chronological order.
+* [x] Avoid loading the entire database when only a limited period is needed.
+* [x] Keep research code independent of Bybit and SQLite details.
 
-Следующая задача: зафиксировать точную спецификацию первой версии
-EMA Trend Pullback в рамках Phase 2.
+### Completion criteria
+
+* [x] Strategy and research code can request a period through one documented
+  read interface.
+
+---
+
+## 1.8 Final data-layer verification
+
+### Tasks
+
+* [x] Download the complete 15m history.
+* [x] Download the complete 1h history.
+* [x] Check for missing candles.
+* [x] Check for duplicate candles.
+* [x] Check OHLC validity.
+* [x] Check timestamp alignment.
+* [x] Run SQLite integrity check.
+* [x] Measure full pandas loading time.
+* [x] Document the implemented commands in `README.md`.
+
+### Verified data snapshot
+
+```text
+Market: linear ETHUSDT
+
+15m:
+  candles: 125,141
+  first:   2023-01-01 00:00 UTC
+  last:    2026-07-27 13:00 UTC
+
+1h:
+  candles: 31,285
+  first:   2023-01-01 00:00 UTC
+  last:    2026-07-27 12:00 UTC
+
+gaps:                 0
+duplicates:           0
+invalid OHLC rows:    0
+unaligned timestamps: 0
+SQLite integrity:     ok
+database size:        18,157,568 bytes
+15m pandas load:      1.204 seconds
+1h pandas load:       0.348 seconds
+```
+
+## Phase 1 completion criteria
+
+* [x] Bybit connectivity is verified.
+* [x] Historical candles can be downloaded and resumed safely.
+* [x] Closed candles are validated and stored in SQLite.
+* [x] Duplicates are prevented and gaps are detectable.
+* [x] Requested periods can be loaded for analysis.
+* [x] New candles can be added incrementally.
+* [x] The complete initial dataset passes the control review.
+* [x] The data layer has a simple documented interface.
+
+---
+
+# Phase 2 — First strategy
+
+Status: [~] In progress
+
+## Goal
+
+Produce one fully specified and reproducible EMA Trend Pullback strategy that
+can be used unchanged by backtest, demo, and live trading.
+
+EMA Trend Pullback is a conventional trend-following hypothesis. Its selection
+does not assume that it is profitable. Profitability and practical feasibility
+must be tested after costs and exchange constraints.
+
+## 2.1 Freeze the first-version strategy specification
+
+### Tasks
+
+* [ ] Define the exact 1h EMA trend-permission rules.
+* [ ] Define the exact 15m pullback rules.
+* [ ] Define the exact continuation-confirmation rules.
+* [ ] Define long-entry conditions.
+* [ ] Define short-entry conditions.
+* [ ] Define no-entry conditions.
+* [ ] Define when a decision is produced.
+* [ ] Define the executable entry timing and reference price.
+* [ ] Define stop-loss calculation.
+* [ ] Define take-profit calculation.
+* [ ] Define maximum holding time if required by the hypothesis.
+* [ ] Define behavior when a position is already open.
+* [ ] Decide whether long and short rules are symmetrical.
+* [ ] List every configurable parameter and its initial value.
+* [ ] Record a version identifier for the frozen specification.
+
+### Completion criteria
+
+* [ ] Every entry, exit, and no-entry outcome can be derived from written rules.
+* [ ] No implementation choice is left implicit.
+
+---
+
+## 2.2 Freeze the trading decision model
+
+The strategy returns an explicit trading decision. The exact decision actions
+are frozen with the first strategy specification and may later be extended
+without changing the stable project context.
+
+### Tasks
+
+* [ ] Define the concrete decision actions needed by the first strategy.
+* [ ] Include the decision timestamp.
+* [ ] Include direction when applicable.
+* [ ] Include the entry reference when applicable.
+* [ ] Include stop-loss and take-profit when applicable.
+* [ ] Include an explicit reason.
+* [ ] Include supporting indicator values.
+* [ ] Include the strategy configuration version.
+* [ ] Ensure the same model can represent entry, management, exit, or no
+  action as required by the implementation.
+
+### Completion criteria
+
+* [ ] Backtest, demo, and live can consume the same decision object without
+  translating strategy meaning.
+
+---
+
+## 2.3 Implement only the required indicators
+
+### Tasks
+
+* [ ] Load a selected 2023–2024 development period.
+* [ ] Implement the exact EMA calculations required by the specification.
+* [ ] Implement ATR only if required by the specification.
+* [ ] Define the warm-up period.
+* [ ] Define behavior when history is insufficient.
+* [ ] Keep all indicator calculations in memory.
+* [ ] Do not store indicator versions in SQLite.
+* [ ] Add focused checks against independently calculated expected values.
+
+### Completion criteria
+
+* [ ] Indicator output is deterministic and does not use future candles.
+* [ ] Only indicators required by the first strategy exist.
+
+---
+
+## 2.4 Align 15m and 1h data without look-ahead
+
+### Tasks
+
+* [ ] Associate each closed 15m candle with the last fully closed 1h candle
+  available at that time.
+* [ ] Verify UTC boundaries.
+* [ ] Ensure the currently incomplete 1h candle is never used.
+* [ ] Define identical alignment behavior for backtest, demo, and live.
+* [ ] Add boundary-case checks around the hourly close.
+
+### Completion criteria
+
+* [ ] No 15m decision can access information that was unavailable at its
+  decision time.
+
+---
+
+## 2.5 Implement the strategy
+
+### Tasks
+
+* [ ] Implement one deterministic decision path.
+* [ ] Keep the strategy independent of Bybit, Telegram, and SQLite.
+* [ ] Pass prepared market data, position state when required, and explicit
+  configuration into the strategy.
+* [ ] Return the frozen trading-decision model.
+* [ ] Preserve the reason and supporting values for every decision.
+* [ ] Ensure identical inputs produce identical decisions.
+
+### Completion criteria
+
+* [ ] The implementation matches the written specification.
+* [ ] The same strategy function is suitable for all execution modes.
+
+---
+
+## 2.6 Limited implementation review
+
+Use only selected sections from the 2023–2024 development period.
+
+### Tasks
+
+* [ ] Verify representative long decisions.
+* [ ] Verify representative short decisions.
+* [ ] Verify representative no-entry decisions.
+* [ ] Verify signal and entry timing.
+* [ ] Verify 15m/1h alignment.
+* [ ] Verify warm-up behavior.
+* [ ] Verify that no future values are used.
+* [ ] Record and correct implementation errors only.
+* [ ] Do not inspect 2025 or 2026 during this review.
+* [ ] Do not visually tune rules to selected profitable examples.
+
+## Phase 2 completion criteria
+
+* [ ] The exact first-version strategy specification is frozen.
+* [ ] The concrete decision model is frozen.
+* [ ] Required indicators are implemented and checked.
+* [ ] Multi-timeframe alignment is verified.
+* [ ] Strategy behavior is deterministic and explainable.
+* [ ] The strategy is ready for a sequential backtest.
+
+---
+
+# Phase 3 — Realistic backtest
+
+Status: [ ] Not started
+
+## Goal
+
+Determine whether the frozen first strategy has useful expectancy after
+realistic execution costs and whether its trades are feasible with the planned
+initial capital.
+
+## 3.1 Sequential simulation
+
+### Tasks
+
+* [ ] Process candles strictly in chronological order.
+* [ ] Enter only according to the frozen execution-timing rule.
+* [ ] Simulate stop-loss and take-profit.
+* [ ] Define conservative behavior when both levels are touched in one candle.
+* [ ] Prevent overlapping positions unless the specification explicitly allows
+  them.
+* [ ] Implement time-based or decision-based exits only if specified.
+* [ ] Record every decision, attempted order, filled trade, and exit.
+
+---
+
+## 3.2 Costs and 10 USDT execution feasibility
+
+### Tasks
+
+* [ ] Model Bybit trading fees.
+* [ ] Model configurable slippage.
+* [ ] Model funding when a position crosses a funding timestamp.
+* [ ] Define starting capital.
+* [ ] Define risk per trade.
+* [ ] Calculate position size from risk and stop distance.
+* [ ] Model available margin and leverage.
+* [ ] Obtain current ETHUSDT instrument constraints from an authoritative Bybit
+  source at implementation time.
+* [ ] Enforce minimum notional and quantity.
+* [ ] Enforce quantity step and price tick.
+* [ ] Apply the same price and quantity rounding planned for demo and live.
+* [ ] Reject unexecutable trades with an explicit reason.
+* [ ] Keep the execution-constraint logic reusable outside the backtest.
+
+---
+
+## 3.3 Metrics and reports
+
+### Tasks
+
+* [ ] Calculate trade count.
+* [ ] Calculate unexecutable-decision count.
+* [ ] Calculate gross and net PnL.
+* [ ] Calculate total fees and funding.
+* [ ] Calculate win rate.
+* [ ] Calculate average trade result.
+* [ ] Calculate expectancy.
+* [ ] Calculate profit factor.
+* [ ] Calculate maximum drawdown.
+* [ ] Calculate the longest losing streak.
+* [ ] Calculate return on starting capital.
+* [ ] Report long and short results separately.
+* [ ] Save the configuration, summary, and trade list reproducibly.
+
+---
+
+## 3.4 Run order
+
+### Tasks
+
+* [ ] Run a short technical period from 2023–2024.
+* [ ] Correct simulator or implementation errors only.
+* [ ] Run the complete 2023–2024 development backtest.
+* [ ] Review whether the number of trades is sufficient to interpret.
+* [ ] Record weaknesses without looking at 2025 or 2026.
+
+## Phase 3 completion criteria
+
+* [ ] The backtest has no known look-ahead path.
+* [ ] Results include realistic costs and exchange constraints.
+* [ ] The result can be reproduced from a saved configuration.
+* [ ] A clear decision is recorded: reject, adjust, or continue to validation.
+
+---
+
+# Phase 4 — Limited strategy adjustment
+
+Status: [ ] Not started
+
+## Goal
+
+Allow a small amount of explainable development without turning the project
+into open-ended parameter research.
+
+## Tasks
+
+* [ ] Correct any remaining logical errors.
+* [ ] Define a small number of meaningful parameter alternatives.
+* [ ] Explain why each alternative is being tested.
+* [ ] Use only 2023–2024 development data.
+* [ ] Avoid large blind parameter grids.
+* [ ] Avoid adding a new filter to explain every losing trade.
+* [ ] Compare net results, drawdown, trade count, and subperiod consistency.
+* [ ] Compare neighboring parameter values for fragility.
+* [ ] Reject the strategy if it remains clearly unsuitable.
+* [ ] Select one final configuration if evidence supports continuing.
+* [ ] Freeze code, parameters, costs, and execution assumptions.
+* [ ] Do not inspect 2025 or 2026 before the freeze.
+
+## Completion criteria
+
+* [ ] One final configuration is frozen, or the strategy is explicitly
+  rejected.
+* [ ] The reason for the decision is documented.
+
+---
+
+# Phase 5 — Validation and out-of-sample test
+
+Status: [ ] Not started
+
+## Goal
+
+Test the frozen strategy on data that was not used to change its rules.
+
+## Dataset split
+
+```text
+Development:   2023-01-01 through 2024-12-31
+Validation:    2025-01-01 through 2025-12-31
+Out-of-sample: 2026-01-01 through the latest available closed candle
+```
+
+## Tasks
+
+* [ ] Confirm that strategy code and parameters are frozen.
+* [ ] Run the 2025 validation period once.
+* [ ] Do not tune the strategy from the 2025 result.
+* [ ] Record validation PnL, drawdown, trade count, losing streaks, subperiod
+  behavior, and execution feasibility.
+* [ ] Apply the predefined validation decision criteria.
+* [ ] Run the 2026 out-of-sample period only if the process still permits it.
+* [ ] Do not tune the strategy from the 2026 result.
+* [ ] Document the final validation decision.
+
+## Completion criteria
+
+* [ ] The strategy is rejected or explicitly approved for demo.
+* [ ] Approval is based on net results, risk, stability, and execution
+  feasibility rather than headline profit alone.
+
+---
+
+# Phase 6 — Bybit Demo Trading
+
+Status: [ ] Not started
+
+## Goal
+
+Run the approved strategy in real time without risking real funds.
+
+## 6.1 Demo execution
+
+### Tasks
+
+* [ ] Configure Bybit Demo Trading access.
+* [ ] Store API credentials outside source control.
+* [ ] Synchronize closed 15m and 1h candles at startup.
+* [ ] Detect each new fully closed signal candle.
+* [ ] Run only the approved strategy configuration.
+* [ ] Use the same decision model as the backtest.
+* [ ] Use the same sizing, instrument constraints, and rounding rules.
+* [ ] Submit and track demo orders.
+* [ ] Store decisions, orders, fills, positions, and errors.
+* [ ] Reconcile local orders and positions with Bybit.
+* [ ] Prevent duplicate orders for the same decision candle.
+* [ ] Handle delayed data and temporary API failures.
+
+---
+
+## 6.2 Minimum demo safety
+
+### Tasks
+
+* [ ] Add persistent error logging.
+* [ ] Stop trading after repeated critical errors.
+* [ ] Add a persistent manual pause.
+* [ ] Add duplicate-order protection.
+* [ ] Detect local/exchange position mismatch.
+* [ ] Recover safely after process restart.
+* [ ] Never continue trading from an unknown position state.
+
+---
+
+## 6.3 Demo evaluation
+
+### Tasks
+
+* [ ] Compare demo decision timing with backtest assumptions.
+* [ ] Compare expected and actual entry prices.
+* [ ] Measure actual fees, funding, and slippage.
+* [ ] Record missed, rejected, duplicated, or delayed actions.
+* [ ] Run for a predefined minimum time or trade count.
+* [ ] Document whether the full loop behaves as expected.
+
+## Completion criteria
+
+* [ ] The system can run unattended in demo without losing state.
+* [ ] Orders and positions reconcile correctly.
+* [ ] Safety controls work under tested failure scenarios.
+* [ ] Demo behavior is sufficiently consistent with modeled behavior.
+
+---
+
+# Phase 7 — Monitoring, safety, and Telegram
+
+Status: [ ] Not started
+
+## Goal
+
+Make system state and critical failures visible before any live activation.
+
+## 7.1 Runtime monitoring
+
+### Tasks
+
+* [ ] Monitor candle freshness.
+* [ ] Detect candle gaps.
+* [ ] Monitor Bybit API availability.
+* [ ] Monitor open orders and positions.
+* [ ] Detect local/exchange state mismatch.
+* [ ] Track current drawdown.
+* [ ] Track repeated critical errors.
+* [ ] Persist pause and emergency-stop state.
+* [ ] Define safe recovery behavior for each critical condition.
+
+---
+
+## 7.2 Telegram notifications
+
+Telegram is initially a read-only notification channel and text dashboard. It
+does not select strategies or make trading decisions.
+
+### Tasks
+
+* [ ] Notify on system start and stop.
+* [ ] Notify when market data becomes stale.
+* [ ] Notify on critical errors.
+* [ ] Notify when pause or emergency stop is activated.
+* [ ] Notify when an order is created, filled, cancelled, or rejected.
+* [ ] Notify when a position is opened or closed.
+
+---
+
+## 7.3 Telegram text summary
+
+### Tasks
+
+* [ ] Show completed trade count.
+* [ ] Show the current open position.
+* [ ] Show capital currently in exposure.
+* [ ] Show realized PnL.
+* [ ] Show unrealized PnL.
+* [ ] Show fees and funding.
+* [ ] Show current drawdown.
+* [ ] Show system status and last fresh-data time.
+
+## Completion criteria
+
+* [ ] Critical failures are visible without opening the trading process.
+* [ ] The operator can determine whether the system is trading, paused, stale,
+  or in an error state.
+* [ ] Monitoring failure cannot silently authorize trading.
+
+---
+
+# Phase 8 — Small controlled live trading
+
+Status: [ ] Not started
+
+## Goal
+
+Verify the complete system with the smallest explicitly approved real-money
+exposure.
+
+Live activation requires a separate manual decision. Completion of earlier
+code tasks does not activate trading automatically.
+
+## Preconditions
+
+* [ ] Validation and out-of-sample results do not show a critical breakdown.
+* [ ] Demo has run stably for the agreed minimum time or trade count.
+* [ ] Real fees, funding, slippage, rounding, and instrument limits are
+  confirmed.
+* [ ] Duplicate protection and reconciliation are tested.
+* [ ] Monitoring and Telegram reporting are operational.
+* [ ] Manual pause and emergency stop are tested.
+* [ ] Starting capital and maximum acceptable loss are explicitly confirmed.
+* [ ] Current Bybit rules permit the intended position size and risk model.
+
+## Initial live restrictions
+
+* [ ] Trade only `ETHUSDT`.
+* [ ] Use only the approved strategy and frozen configuration.
+* [ ] Use approximately 10 USDT only if exchange constraints permit it.
+* [ ] Use the smallest approved risk per trade.
+* [ ] Do not optimize parameters automatically.
+* [ ] Do not replace the active strategy automatically.
+* [ ] Require manual approval for configuration changes.
+* [ ] Revalidate material changes before returning them to live.
+
+## Completion criteria
+
+* [ ] The full loop behaves correctly with real executions.
+* [ ] Loss and drawdown remain within the approved limits.
+* [ ] Any decision to increase capital is separate, evidence-based, and
+  manually approved.
+
+---
+
+# Later development
+
+Status: [-] Deferred
+
+Only after the first strategy completes the full controlled path:
+
+* [-] Evaluate other conventional strategy hypotheses.
+* [-] Compare multiple strategies under one validation protocol.
+* [-] Add controlled strategy selection.
+* [-] Add other trading pairs.
+* [-] Add broader offline research tools.
+* [-] Add session filters if justified by evidence.
+* [-] Expand Telegram reporting.
+* [-] Add more detailed analytics and reporting.
+
+Every additional strategy must pass:
+
+1. exact specification;
+2. implementation without look-ahead;
+3. development backtest;
+4. limited adjustment;
+5. configuration freeze;
+6. validation and out-of-sample testing;
+7. demo trading;
+8. a separate live-activation decision.
+
+---
+
+# Explicitly deferred scope
+
+* [-] Machine learning.
+* [-] Tick-data and order-book research.
+* [-] High-frequency trading.
+* [-] Multi-exchange support.
+* [-] A large portfolio framework.
+* [-] Cloud or distributed infrastructure.
+* [-] Plugin architecture.
+* [-] Continuous parameter optimization.
+* [-] Autonomous strategy creation or replacement.
+* [-] A complex graphical dashboard.
+
+These items must not complicate the first path from one strategy to controlled
+live trading.
+
+---
+
+# Decision log
+
+* [x] Keep the system local and simple while that remains sufficient.
+* [x] Use real data and realistic execution assumptions.
+* [x] Start with one conventional and explainable strategy.
+* [x] Keep trend permission inside EMA Trend Pullback.
+* [x] Let the strategy return an explicit trading decision.
+* [x] Freeze the concrete decision model during strategy specification.
+* [x] Use the same strategy implementation in backtest, demo, and live.
+* [x] Treat backtest as the first test, not proof of future profit.
+* [x] Keep validation, out-of-sample testing, and demo before live.
+* [x] Use Telegram as read-only reporting before live.
+* [x] Defer automatic strategy selection until multiple validated strategies
+  actually exist.
+
+---
+
+# Work log
+
+## 2026-07-27
+
+* [x] Completed Phase 1.
+* [x] Downloaded complete ETHUSDT 15m and 1h history from 2023-01-01.
+* [x] Verified continuity, integrity, OHLC validity, and read performance.
+* [x] Documented the data-layer commands.
+* [x] Revised the roadmap to focus on one strategy and the shortest controlled
+  route to live trading.
+* [x] Deferred the general research platform and automatic strategy selection.
+
+## Next task
+
+* [~] Write and freeze the exact EMA Trend Pullback first-version
+  specification.

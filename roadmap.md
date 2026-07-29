@@ -549,6 +549,9 @@ initial capital.
 * [ ] Define risk per trade.
 * [ ] Calculate position size from risk and stop distance.
 * [ ] Model available margin and leverage.
+* [ ] Use `3x` as the baseline leverage in backtest, demo, and initial live.
+* [ ] Treat `5x` only as a future manually approved maximum after validated
+  and stable results; never select it automatically.
 * [ ] Obtain current ETHUSDT instrument constraints from an authoritative Bybit
   source at implementation time.
 * [ ] Enforce minimum notional and quantity.
@@ -819,6 +822,9 @@ code tasks does not activate trading automatically.
 * [ ] Use only the approved strategy and frozen configuration.
 * [ ] Use approximately 10 USDT only if exchange constraints permit it.
 * [ ] Use the smallest approved risk per trade.
+* [ ] Use `3x` leverage for the initial live configuration.
+* [ ] Do not increase leverage to `5x` without a separate evidence-based and
+  manually approved decision.
 * [ ] Do not optimize parameters automatically.
 * [ ] Do not replace the active strategy automatically.
 * [ ] Require manual approval for configuration changes.
@@ -893,10 +899,18 @@ live trading.
 * [x] Use Telegram as read-only reporting before live.
 * [x] Defer automatic strategy selection until multiple validated strategies
   actually exist.
+* [x] Keep leverage outside the strategy rules: use `3x` as the baseline and
+  reserve `5x` as a possible future manually approved maximum.
 
 ---
 
 # Work log
+
+## 2026-07-29
+
+* [x] Selected `3x` as the baseline leverage for execution modeling.
+* [x] Deferred any increase to `5x` until stable validated results and a
+  separate manual decision.
 
 ## 2026-07-27
 

@@ -95,7 +95,9 @@ Run the deterministic EMA and Wilder ATR checks:
 
 ```bash
 python -m strategies.check_indicators
+python -m strategies.check_timeframe_alignment
 ```
 
 The check covers known synthetic values, warm-up behavior, input immutability,
-look-ahead protection, invalid inputs, and a stored 2023 development range.
+look-ahead protection, hourly boundary alignment, invalid inputs, and a stored
+2023 development range.

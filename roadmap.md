@@ -49,7 +49,7 @@ Define and implement the first transparent strategy hypothesis,
 ## Current active task
 
 ```text
-Align closed 15m and 1h candles without look-ahead.
+Implement the EMA Trend Pullback decision path.
 ```
 
 ## Immediate path
@@ -452,16 +452,16 @@ without changing the stable project context.
 
 ### Tasks
 
-* [ ] Associate each closed 15m candle with the last fully closed 1h candle
+* [x] Associate each closed 15m candle with the last fully closed 1h candle
   available at that time.
-* [ ] Verify UTC boundaries.
-* [ ] Ensure the currently incomplete 1h candle is never used.
-* [ ] Define identical alignment behavior for backtest, demo, and live.
-* [ ] Add boundary-case checks around the hourly close.
+* [x] Verify UTC boundaries.
+* [x] Ensure the currently incomplete 1h candle is never used.
+* [x] Define identical alignment behavior for backtest, demo, and live.
+* [x] Add boundary-case checks around the hourly close.
 
 ### Completion criteria
 
-* [ ] No 15m decision can access information that was unavailable at its
+* [x] No 15m decision can access information that was unavailable at its
   decision time.
 
 ---
@@ -507,7 +507,7 @@ Use only selected sections from the 2023–2024 development period.
 * [x] The exact first-version strategy specification is frozen.
 * [x] The concrete decision model is frozen.
 * [x] Required indicators are implemented and checked.
-* [ ] Multi-timeframe alignment is verified.
+* [x] Multi-timeframe alignment is verified.
 * [ ] Strategy behavior is deterministic and explainable.
 * [ ] The strategy is ready for a sequential backtest.
 
@@ -913,6 +913,8 @@ live trading.
 * [x] Verified known values, warm-up, determinism, input immutability, and no
   look-ahead behavior.
 * [x] Ran indicator checks on stored 2023 development data.
+* [x] Aligned each 15m decision with the latest available closed 1h candle.
+* [x] Verified the 10:45 and 11:00 hourly boundary cases without look-ahead.
 
 ## 2026-07-29
 
@@ -934,4 +936,4 @@ live trading.
 
 ## Next task
 
-* [~] Align closed 15m and 1h candles without look-ahead.
+* [~] Implement the EMA Trend Pullback decision path.

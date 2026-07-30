@@ -38,26 +38,26 @@ Statuses:
 ## Current phase
 
 ```text
-Phase 2 — First strategy
+Phase 4 — Limited strategy adjustment
 ```
 
 ## Current objective
 
-Define and implement the first transparent strategy hypothesis,
-**EMA Trend Pullback**, and prepare it for a realistic sequential backtest.
+Review the unchanged EMA Trend Pullback baseline and decide whether a very
+small set of explainable 2023–2024 alternatives is justified.
 
 ## Current active task
 
 ```text
-Implement the EMA Trend Pullback decision path.
+Review the baseline result and agree whether to adjust or reject version 1.
 ```
 
 ## Immediate path
 
 * [x] Define one conventional and explainable strategy.
 * [x] Implement only the indicators required by that strategy.
-* [ ] Implement one deterministic trading-decision path.
-* [ ] Backtest it with realistic costs and Bybit constraints.
+* [x] Implement one deterministic trading-decision path.
+* [x] Backtest it with realistic costs and Bybit constraints.
 * [ ] Make only limited, explainable adjustments on development data.
 * [ ] Freeze the configuration and run validation and out-of-sample tests.
 * [ ] Run the same strategy in Bybit Demo Trading.
@@ -364,7 +364,7 @@ database size:        18,157,568 bytes
 
 # Phase 2 — First strategy
 
-Status: [~] In progress
+Status: [x] Completed on 2026-07-30
 
 ## Goal
 
@@ -470,18 +470,18 @@ without changing the stable project context.
 
 ### Tasks
 
-* [ ] Implement one deterministic decision path.
-* [ ] Keep the strategy independent of Bybit, Telegram, and SQLite.
-* [ ] Pass prepared market data, position state when required, and explicit
+* [x] Implement one deterministic decision path.
+* [x] Keep the strategy independent of Bybit, Telegram, and SQLite.
+* [x] Pass prepared market data, position state when required, and explicit
   configuration into the strategy.
-* [ ] Return the frozen trading-decision model.
-* [ ] Preserve the reason and supporting values for every decision.
-* [ ] Ensure identical inputs produce identical decisions.
+* [x] Return the frozen trading-decision model.
+* [x] Preserve the reason and supporting values for every decision.
+* [x] Ensure identical inputs produce identical decisions.
 
 ### Completion criteria
 
-* [ ] The implementation matches the written specification.
-* [ ] The same strategy function is suitable for all execution modes.
+* [x] The implementation matches the written specification.
+* [x] The same strategy function is suitable for all execution modes.
 
 ---
 
@@ -491,16 +491,16 @@ Use only selected sections from the 2023–2024 development period.
 
 ### Tasks
 
-* [ ] Verify representative long decisions.
-* [ ] Verify representative short decisions.
-* [ ] Verify representative no-entry decisions.
-* [ ] Verify signal and entry timing.
-* [ ] Verify 15m/1h alignment.
-* [ ] Verify warm-up behavior.
-* [ ] Verify that no future values are used.
-* [ ] Record and correct implementation errors only.
-* [ ] Do not inspect 2025 or 2026 during this review.
-* [ ] Do not visually tune rules to selected profitable examples.
+* [x] Verify representative long decisions.
+* [x] Verify representative short decisions.
+* [x] Verify representative no-entry decisions.
+* [x] Verify signal and entry timing.
+* [x] Verify 15m/1h alignment.
+* [x] Verify warm-up behavior.
+* [x] Verify that no future values are used.
+* [x] Record and correct implementation errors only.
+* [x] Do not inspect 2025 or 2026 during this review.
+* [x] Do not visually tune rules to selected profitable examples.
 
 ## Phase 2 completion criteria
 
@@ -508,14 +508,14 @@ Use only selected sections from the 2023–2024 development period.
 * [x] The concrete decision model is frozen.
 * [x] Required indicators are implemented and checked.
 * [x] Multi-timeframe alignment is verified.
-* [ ] Strategy behavior is deterministic and explainable.
-* [ ] The strategy is ready for a sequential backtest.
+* [x] Strategy behavior is deterministic and explainable.
+* [x] The strategy is ready for a sequential backtest.
 
 ---
 
 # Phase 3 — Realistic backtest
 
-Status: [ ] Not started
+Status: [x] Completed on 2026-07-30
 
 ## Goal
 
@@ -527,14 +527,15 @@ initial capital.
 
 ### Tasks
 
-* [ ] Process candles strictly in chronological order.
-* [ ] Enter only according to the frozen execution-timing rule.
-* [ ] Simulate stop-loss and take-profit.
-* [ ] Define conservative behavior when both levels are touched in one candle.
-* [ ] Prevent overlapping positions unless the specification explicitly allows
+* [x] Process candles strictly in chronological order.
+* [x] Enter only according to the frozen execution-timing rule.
+* [x] Simulate stop-loss and take-profit.
+* [x] Define conservative behavior when both levels are touched in one candle.
+* [x] Prevent overlapping positions unless the specification explicitly allows
   them.
-* [ ] Implement time-based or decision-based exits only if specified.
-* [ ] Record every decision, attempted order, filled trade, and exit.
+* [x] Implement time-based or decision-based exits only if specified.
+* [x] Count entry signals and retain every rejected entry, filled trade, and
+  exit in the backtest result.
 
 ---
 
@@ -542,23 +543,24 @@ initial capital.
 
 ### Tasks
 
-* [ ] Model Bybit trading fees.
-* [ ] Model configurable slippage.
-* [ ] Model funding when a position crosses a funding timestamp.
-* [ ] Define starting capital.
-* [ ] Define risk per trade.
-* [ ] Calculate position size from risk and stop distance.
-* [ ] Model available margin and leverage.
-* [ ] Use `3x` as the baseline leverage in backtest, demo, and initial live.
-* [ ] Treat `5x` only as a future manually approved maximum after validated
+* [x] Model Bybit trading fees.
+* [x] Model configurable slippage.
+* [x] Model funding conservatively when a position crosses an 8-hour funding
+  boundary; historical funding rates are not yet loaded.
+* [x] Define starting capital.
+* [x] Define risk per trade.
+* [x] Calculate position size from risk and stop distance.
+* [x] Model available margin and leverage.
+* [x] Use `3x` as the baseline leverage in backtest, demo, and initial live.
+* [x] Treat `5x` only as a future manually approved maximum after validated
   and stable results; never select it automatically.
-* [ ] Obtain current ETHUSDT instrument constraints from an authoritative Bybit
+* [x] Obtain current ETHUSDT instrument constraints from an authoritative Bybit
   source at implementation time.
-* [ ] Enforce minimum notional and quantity.
-* [ ] Enforce quantity step and price tick.
-* [ ] Apply the same price and quantity rounding planned for demo and live.
-* [ ] Reject unexecutable trades with an explicit reason.
-* [ ] Keep the execution-constraint logic reusable outside the backtest.
+* [x] Enforce minimum notional and quantity.
+* [x] Enforce quantity step and price tick.
+* [x] Apply the same price and quantity rounding planned for demo and live.
+* [x] Reject unexecutable trades with an explicit reason.
+* [x] Keep execution assumptions explicit and reusable by later demo code.
 
 ---
 
@@ -566,19 +568,20 @@ initial capital.
 
 ### Tasks
 
-* [ ] Calculate trade count.
-* [ ] Calculate unexecutable-decision count.
-* [ ] Calculate gross and net PnL.
-* [ ] Calculate total fees and funding.
-* [ ] Calculate win rate.
-* [ ] Calculate average trade result.
-* [ ] Calculate expectancy.
-* [ ] Calculate profit factor.
-* [ ] Calculate maximum drawdown.
-* [ ] Calculate the longest losing streak.
-* [ ] Calculate return on starting capital.
-* [ ] Report long and short results separately.
-* [ ] Save the configuration, summary, and trade list reproducibly.
+* [x] Calculate trade count.
+* [x] Calculate unexecutable-decision count.
+* [x] Calculate gross and net PnL.
+* [x] Calculate total fees and funding.
+* [x] Calculate win rate.
+* [x] Calculate average trade result.
+* [x] Calculate expectancy.
+* [x] Calculate profit factor.
+* [x] Calculate maximum closed-equity drawdown.
+* [x] Calculate the longest losing streak.
+* [x] Calculate return on starting capital.
+* [x] Report long and short results separately.
+* [x] Keep configuration and full trade/rejection lists in the reproducible
+  result object; record the frozen baseline summary in the repository.
 
 ---
 
@@ -586,24 +589,25 @@ initial capital.
 
 ### Tasks
 
-* [ ] Run a short technical period from 2023–2024.
-* [ ] Correct simulator or implementation errors only.
-* [ ] Run the complete 2023–2024 development backtest.
-* [ ] Review whether the number of trades is sufficient to interpret.
-* [ ] Record weaknesses without looking at 2025 or 2026.
+* [x] Run a short technical period from 2023–2024.
+* [x] Correct simulator or implementation errors only.
+* [x] Run the complete 2023–2024 development backtest.
+* [x] Review whether the number of trades is sufficient to interpret.
+* [x] Record weaknesses without looking at 2025 or 2026.
 
 ## Phase 3 completion criteria
 
-* [ ] The backtest has no known look-ahead path.
-* [ ] Results include realistic costs and exchange constraints.
-* [ ] The result can be reproduced from a saved configuration.
-* [ ] A clear decision is recorded: reject, adjust, or continue to validation.
+* [x] The backtest has no known look-ahead path.
+* [x] Results include explicit costs and current exchange constraints.
+* [x] The result can be reproduced from the frozen default configuration.
+* [x] The unchanged baseline is not approved for demo; the next decision is
+  limited adjustment or rejection.
 
 ---
 
 # Phase 4 — Limited strategy adjustment
 
-Status: [ ] Not started
+Status: [~] In progress
 
 ## Goal
 
@@ -908,6 +912,15 @@ live trading.
 
 ## 2026-07-30
 
+* [x] Implemented the deterministic EMA Trend Pullback v1 decision function.
+* [x] Added a chronological one-position backtest with next-candle entry,
+  protective exits, risk sizing, 3x margin, costs, and Bybit constraints.
+* [x] Added focused strategy and execution checks.
+* [x] Ran the unchanged baseline on 2023–2024 only: 1,004 entry signals,
+  82 trades, 922 risk rejections, and `10.00 -> 6.267342 USDT` after modeled
+  costs.
+* [x] Recorded that the baseline is not eligible for demo and requires a
+  decision between limited adjustment and rejection.
 * [x] Froze the shared trading-decision model and execution-timing semantics.
 * [x] Implemented the required EMA and Wilder ATR calculations.
 * [x] Verified known values, warm-up, determinism, input immutability, and no
@@ -936,4 +949,5 @@ live trading.
 
 ## Next task
 
-* [~] Implement the EMA Trend Pullback decision path.
+* [~] Review the baseline result and agree whether to adjust or reject version
+  1.

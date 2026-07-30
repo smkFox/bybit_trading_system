@@ -97,7 +97,7 @@ def check_real_development_data() -> tuple[int, int]:
         raise AssertionError("No real 15m rows received an available 1h candle.")
     if not (matched["trend_available_time"] <= matched["decision_time"]).all():
         raise AssertionError("Real-data alignment used a future 1h candle.")
-    if aligned["trend_ema_200"].notna().sum() == 0:
+    if aligned["trend_slow_ema"].notna().sum() == 0:
         raise AssertionError("Real-data alignment produced no warmed-up EMA 200.")
 
     return len(aligned), len(matched)

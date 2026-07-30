@@ -8,7 +8,8 @@ UTC, and public candle requests do not require API keys.
 
 ```text
 market_data/          Bybit market-data API, normalization, storage, and access
-strategies/           Versioned strategy specifications and future strategy code
+strategies/           Versioned strategy specification and decision code
+backtest/             Sequential simulation, execution model, and checks
 data/                 Local runtime data and SQLite database
 context.md            Stable project principles
 roadmap.md            Current implementation plan and status
@@ -89,15 +90,33 @@ strategies/ema_trend_pullback_v1.md
 The specification defines the strategy hypothesis only. It does not activate
 trading and does not claim that the baseline parameters are profitable.
 
-## Indicator checks
+## Strategy and backtest
 
-Run the deterministic EMA and Wilder ATR checks:
+Run the focused deterministic checks:
+
 
 ```bash
 python -m strategies.check_indicators
 python -m strategies.check_timeframe_alignment
+python -m backtest.check_backtest
 ```
 
-The check covers known synthetic values, warm-up behavior, input immutability,
-look-ahead protection, hourly boundary alignment, invalid inputs, and a stored
-2023 development range.
+The checks cover indicator values and warm-up, look-ahead protection, timeframe
+boundaries, strategy decisions, next-candle entry, protective exits, and fees.
+
+Run the frozen baseline on the complete 2023–2024 development period:
+
+```bash
+python -m backtest.run_backtest
+```
+
+The default run starts with 10 USDT, uses 1% risk per trade, 3x leverage,
+0.055% taker fee and 0.05% adverse slippage per fill. Funding is represented by
+a conservative configurable 0.01% cost for each crossed 8-hour interval. The
+simulator applies the current ETHUSDT quantity, notional, and price-step
+constraints recorded in the configuration; they were observed on 2026-07-30
+and are not claimed to be historical constraints.
+
+The backtest reads candles from SQLite but does not write decisions or results
+to the market-data database. A concise frozen baseline report is stored in
+`backtest/baseline_2023_2024.md`.

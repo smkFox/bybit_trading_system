@@ -30,6 +30,11 @@ def _require_columns(
 def align_timeframes(
     candles_15m: pd.DataFrame,
     candles_1h: pd.DataFrame,
+    *,
+    pullback_ema_period: int = 20,
+    atr_period: int = 14,
+    trend_fast_ema_period: int = 50,
+    trend_slow_ema_period: int = 200,
 ) -> pd.DataFrame:
     """Attach the latest available closed 1h candle to every closed 15m candle."""
     _require_columns(candles_15m, SIGNAL_REQUIRED_COLUMNS, "candles_15m")
@@ -41,18 +46,27 @@ def align_timeframes(
     trend = trend.sort_values("open_time").reset_index(drop=True)
 
     signal["decision_time"] = signal["open_time"] + SIGNAL_DURATION
-    signal["signal_ema_20"] = calculate_ema(signal["close"], period=20)
-    signal["signal_atr_14"] = calculate_atr(signal, period=14)
+    signal["signal_ema"] = calculate_ema(
+        signal["close"],
+        period=pullback_ema_period,
+    )
+    signal["signal_atr"] = calculate_atr(signal, period=atr_period)
 
-    trend_ema_50 = calculate_ema(trend["close"], period=50)
-    trend_ema_200 = calculate_ema(trend["close"], period=200)
+    trend_fast_ema = calculate_ema(
+        trend["close"],
+        period=trend_fast_ema_period,
+    )
+    trend_slow_ema = calculate_ema(
+        trend["close"],
+        period=trend_slow_ema_period,
+    )
     available_trend = pd.DataFrame(
         {
             "trend_open_time": trend["open_time"],
             "trend_available_time": trend["open_time"] + TREND_DURATION,
             "trend_close": trend["close"].astype("float64", copy=False),
-            "trend_ema_50": trend_ema_50,
-            "trend_ema_200": trend_ema_200,
+            "trend_fast_ema": trend_fast_ema,
+            "trend_slow_ema": trend_slow_ema,
         }
     )
 

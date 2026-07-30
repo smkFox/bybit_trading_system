@@ -88,3 +88,14 @@ strategies/ema_trend_pullback_v1.md
 
 The specification defines the strategy hypothesis only. It does not activate
 trading and does not claim that the baseline parameters are profitable.
+
+## Indicator checks
+
+Run the deterministic EMA and Wilder ATR checks:
+
+```bash
+python -m strategies.check_indicators
+```
+
+The check covers known synthetic values, warm-up behavior, input immutability,
+look-ahead protection, invalid inputs, and a stored 2023 development range.

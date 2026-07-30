@@ -49,13 +49,13 @@ Define and implement the first transparent strategy hypothesis,
 ## Current active task
 
 ```text
-Define and freeze the concrete trading-decision model.
+Align closed 15m and 1h candles without look-ahead.
 ```
 
 ## Immediate path
 
 * [x] Define one conventional and explainable strategy.
-* [ ] Implement only the indicators required by that strategy.
+* [x] Implement only the indicators required by that strategy.
 * [ ] Implement one deterministic trading-decision path.
 * [ ] Backtest it with realistic costs and Bybit constraints.
 * [ ] Make only limited, explainable adjustments on development data.
@@ -410,20 +410,20 @@ without changing the stable project context.
 
 ### Tasks
 
-* [ ] Define the concrete decision actions needed by the first strategy.
-* [ ] Include the decision timestamp.
-* [ ] Include direction when applicable.
-* [ ] Include the entry reference when applicable.
-* [ ] Include stop-loss and take-profit when applicable.
-* [ ] Include an explicit reason.
-* [ ] Include supporting indicator values.
-* [ ] Include the strategy configuration version.
-* [ ] Ensure the same model can represent entry, management, exit, or no
+* [x] Define the concrete decision actions needed by the first strategy.
+* [x] Include the decision timestamp.
+* [x] Include direction when applicable.
+* [x] Include the entry timing and mode-specific fill reference.
+* [x] Include stop distance and take-profit multiple when applicable.
+* [x] Include an explicit reason.
+* [x] Include supporting indicator values.
+* [x] Include the strategy configuration version.
+* [x] Ensure the same model can represent entry, management, exit, or no
   action as required by the implementation.
 
 ### Completion criteria
 
-* [ ] Backtest, demo, and live can consume the same decision object without
+* [x] Backtest, demo, and live can consume the same decision object without
   translating strategy meaning.
 
 ---
@@ -432,19 +432,19 @@ without changing the stable project context.
 
 ### Tasks
 
-* [ ] Load a selected 2023–2024 development period.
-* [ ] Implement the exact EMA calculations required by the specification.
-* [ ] Implement ATR only if required by the specification.
-* [ ] Define the warm-up period.
-* [ ] Define behavior when history is insufficient.
-* [ ] Keep all indicator calculations in memory.
-* [ ] Do not store indicator versions in SQLite.
-* [ ] Add focused checks against independently calculated expected values.
+* [x] Load a selected 2023–2024 development period.
+* [x] Implement the exact EMA calculations required by the specification.
+* [x] Implement ATR only if required by the specification.
+* [x] Define the warm-up period.
+* [x] Define behavior when history is insufficient.
+* [x] Keep all indicator calculations in memory.
+* [x] Do not store indicator versions in SQLite.
+* [x] Add focused checks against independently calculated expected values.
 
 ### Completion criteria
 
-* [ ] Indicator output is deterministic and does not use future candles.
-* [ ] Only indicators required by the first strategy exist.
+* [x] Indicator output is deterministic and does not use future candles.
+* [x] Only indicators required by the first strategy exist.
 
 ---
 
@@ -504,9 +504,9 @@ Use only selected sections from the 2023–2024 development period.
 
 ## Phase 2 completion criteria
 
-* [ ] The exact first-version strategy specification is frozen.
-* [ ] The concrete decision model is frozen.
-* [ ] Required indicators are implemented and checked.
+* [x] The exact first-version strategy specification is frozen.
+* [x] The concrete decision model is frozen.
+* [x] Required indicators are implemented and checked.
 * [ ] Multi-timeframe alignment is verified.
 * [ ] Strategy behavior is deterministic and explainable.
 * [ ] The strategy is ready for a sequential backtest.
@@ -906,6 +906,14 @@ live trading.
 
 # Work log
 
+## 2026-07-30
+
+* [x] Froze the shared trading-decision model and execution-timing semantics.
+* [x] Implemented the required EMA and Wilder ATR calculations.
+* [x] Verified known values, warm-up, determinism, input immutability, and no
+  look-ahead behavior.
+* [x] Ran indicator checks on stored 2023 development data.
+
 ## 2026-07-29
 
 * [x] Selected `3x` as the baseline leverage for execution modeling.
@@ -926,4 +934,4 @@ live trading.
 
 ## Next task
 
-* [~] Define and freeze the concrete trading-decision model.
+* [~] Align closed 15m and 1h candles without look-ahead.

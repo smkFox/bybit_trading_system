@@ -38,8 +38,13 @@ The strategy may remain out of the market. Trade frequency must not be forced.
 * A 15m decision is made immediately after its confirmation candle closes.
 * At that decision time, the latest 1h candle whose close time is less than or
   equal to the decision time is available.
-* The entry intent is executable only at the open of the next 15m candle.
-* If the next 15m candle is unavailable, no fill may be assumed.
+* An approved entry intent is executed as soon as practical after the signal
+  closes, during the newly forming 15m candle.
+* The incomplete candle is never used to create the signal.
+* Backtest models the fill as the next 15m candle open plus configured
+  slippage.
+* Demo and live use the actual Bybit market fill after the decision.
+* If no next candle exists in historical data, no backtest fill may be assumed.
 
 ## 4. Indicator definitions
 
@@ -191,19 +196,25 @@ No entry intent is produced when any of the following is true:
 * the required 1h permission is absent;
 * the pullback condition is incomplete;
 * the confirmation condition is incomplete;
-* a required EMA or ATR value is unavailable or non-finite;
+* a required EMA or ATR value is unavailable during normal warm-up;
 * either required candle is not fully closed;
-* the 1h/15m alignment cannot be determined safely;
 * a position is already open.
+
+Malformed candles, non-finite values after warm-up, and unsafe timeframe
+alignment are input errors. They must stop decision processing rather than be
+reported as an ordinary no-entry result.
 
 ## 7. Entry
 
 * A valid setup produces an entry intent after `C` closes.
 * The intended order type is a market order.
-* The modeled fill reference is the actual open of the next 15m candle.
+* The order is sent as soon as practical after the decision and all pre-trade
+  checks complete.
+* Backtest uses the next 15m open plus modeled slippage.
+* Demo and live use the actual Bybit fill.
 * The close of `C` must not be used as the fill price.
-* An entry intent expires if it cannot be executed for its immediately
-  following 15m candle.
+* An entry intent expires if execution is delayed beyond its immediately
+  following 15m candle or if price moves beyond the approved execution limit.
 * Position sizing, margin checks, exchange constraints, fees, and slippage are
   execution responsibilities defined in the backtest phase.
 
@@ -230,8 +241,10 @@ take_profit = fill_price - (2.0 * risk_distance)
 
 The initial reward-to-risk target is therefore `2R`.
 
-Stop-loss and take-profit do not trail and are not recalculated after entry in
-version 1.
+Provisional protection may be calculated from the current executable price
+before order submission. The exact levels are finalized from the actual fill.
+After that finalization, stop-loss and take-profit do not trail and are not
+recalculated in version 1.
 
 Price-tick rounding and behavior when both levels are reachable within one
 candle belong to the shared execution model and will be frozen before the
@@ -277,18 +290,196 @@ stop_atr_multiplier: 1.5
 take_profit_r_multiple: 2.0
 maximum_holding_candles: 32
 
-entry_timing: next_15m_open
+entry_timing: immediately_after_signal_close
+backtest_fill_reference: next_15m_open_plus_slippage
+demo_live_fill_reference: actual_bybit_fill
 maximum_open_positions: 1
 position_scaling: false
 opposite_signal_reversal: false
 long_short_rules: symmetrical
 ```
 
-## 11. Responsibilities outside this specification
+## 11. Trading decision model
+
+The strategy returns exactly one decision after every fully closed 15m signal
+candle.
+
+### 11.1 Actions and direction
+
+Supported actions:
+
+```text
+NO_ACTION
+OPEN_POSITION
+HOLD_POSITION
+CLOSE_POSITION
+```
+
+Direction is represented separately:
+
+```text
+LONG
+SHORT
+null
+```
+
+Action semantics:
+
+* `NO_ACTION`: no position exists and no valid entry is available;
+* `OPEN_POSITION`: a complete long or short setup is confirmed;
+* `HOLD_POSITION`: an existing position remains within its holding period;
+* `CLOSE_POSITION`: the maximum holding period requires a time exit.
+
+Price-based stop-loss and take-profit fills are execution events, not new
+strategy decisions.
+
+### 11.2 Decision fields
+
+```text
+decision_id
+strategy_id
+strategy_version
+
+symbol
+signal_timeframe
+signal_candle_open_time
+decision_time
+execute_at
+
+action
+side
+reason
+
+entry_timing
+stop_distance
+take_profit_r_multiple
+
+supporting_values
+```
+
+`decision_id` must be deterministically derived from:
+
+```text
+strategy_id
+strategy_version
+symbol
+signal_timeframe
+signal_candle_open_time
+action
+```
+
+Recalculating the same candle and state must produce the same decision ID.
+
+`execute_at` identifies the start of the newly forming 15m candle. It is an
+execution target time, not a guaranteed fill price.
+
+For `OPEN_POSITION`, `stop_distance` is `1.5 * ATR14[C]` and
+`take_profit_r_multiple` is `2.0`. Absolute protective prices are not part
+of the decision because they depend on the actual fill.
+
+### 11.3 Decision reasons
+
+```text
+INSUFFICIENT_HISTORY
+TREND_NOT_PERMITTED
+PULLBACK_NOT_FOUND
+CONFIRMATION_NOT_FOUND
+LONG_SETUP_CONFIRMED
+SHORT_SETUP_CONFIRMED
+POSITION_ACTIVE
+MAX_HOLDING_TIME
+```
+
+Evaluation order is fixed:
+
+1. Validate market data and position state.
+2. If a position has completed 32 holding candles, return
+   `CLOSE_POSITION / MAX_HOLDING_TIME`.
+3. If a position remains open, return
+   `HOLD_POSITION / POSITION_ACTIVE`.
+4. Check indicator warm-up.
+5. Check 1h trend permission.
+6. Check the immediately preceding 15m pullback candle.
+7. Check the closed 15m confirmation candle.
+8. Return the appropriate open or no-action decision.
+
+Invalid input is an error and does not produce a normal trading decision.
+
+### 11.4 Supporting values
+
+When available and applicable, `supporting_values` contains:
+
+```text
+trend_candle_open_time
+trend_close
+trend_ema50
+trend_ema200
+
+pullback_candle_open_time
+pullback_open
+pullback_high
+pullback_low
+pullback_close
+pullback_ema20
+
+confirmation_candle_open_time
+confirmation_close
+confirmation_ema20
+confirmation_atr14
+
+position_holding_candles
+```
+
+The values explain the decision. They do not contain account sizing or Bybit
+order state.
+
+## 12. Pre-trade plan and execution boundary
+
+`OPEN_POSITION` is an intent, not permission to submit an order immediately.
+Before submission, Risk and Execution must build and approve one complete
+pre-trade plan containing:
+
+```text
+expected executable price
+maximum allowed account loss
+position quantity and notional
+baseline leverage and required margin
+provisional stop-loss and take-profit
+estimated fees, funding, and slippage
+Bybit quantity and price rounding
+instrument-limit checks
+maximum acceptable entry delay and price deviation
+```
+
+The order is not submitted if any check fails. Execution rejection is stored
+separately from the strategy decision, with a reason such as:
+
+```text
+INSUFFICIENT_MARGIN
+BELOW_MINIMUM_NOTIONAL
+INVALID_QUANTITY
+RISK_LIMIT_EXCEEDED
+PRICE_MOVED_TOO_FAR
+LIQUIDATION_TOO_CLOSE
+```
+
+For an approved plan:
+
+1. Submit the entry with provisional protection when supported.
+2. Confirm the actual Bybit fill.
+3. Finalize protective prices from the actual average fill.
+4. Set or update full-position protection on Bybit.
+5. Verify the position and protective orders.
+6. If protection cannot be established, close the position safely and stop
+   further trading.
+
+Leverage, position size, margin, fees, funding, liquidation checks, exchange
+rounding, and API order parameters are not strategy-decision fields.
+
+## 13. Responsibilities deferred to later phases
 
 The following are intentionally defined in later phases:
 
-* the concrete trading-decision data model;
 * account risk per trade;
 * position sizing;
 * leverage and margin rules;
@@ -299,7 +490,7 @@ The following are intentionally defined in later phases:
 * Telegram reporting;
 * parameter comparison and candidate promotion.
 
-## 12. Development and change policy
+## 14. Development and change policy
 
 * The baseline must be implemented and tested before parameters are adjusted.
 * Strategy changes may use only 2023–2024 development data.

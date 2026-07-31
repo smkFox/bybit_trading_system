@@ -95,9 +95,16 @@ def main() -> None:
         leverage=3.0,
     )
 
-    print("Donchian Breakout v1 baseline")
+    print("Donchian Breakout frozen development configuration")
     print(f"Period: {START} -> {END}")
-    print("Parameters: entry=20, exit=10, ATR=14, stop=2 ATR, no TP")
+    print(
+        "Parameters: "
+        f"entry={strategy_config.entry_channel_period}, "
+        f"exit={strategy_config.exit_channel_period}, "
+        f"ATR={strategy_config.atr_period}, "
+        f"stop={strategy_config.stop_atr_multiplier} ATR, "
+        "Long-only, no TP"
+    )
     print("Costs: taker=0.055% per fill, slippage=0.050% per fill")
     print("Funding: 0.010% cost per crossed 8h interval")
     print(f"Prepared candles: 1h={len(candles_1h)}, 4h={len(candles_4h)}")

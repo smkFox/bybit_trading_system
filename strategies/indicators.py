@@ -75,3 +75,14 @@ def calculate_atr(candles: pd.DataFrame, period: int) -> pd.Series:
         ) / period
 
     return atr
+
+
+def calculate_ema(values: pd.Series, period: int) -> pd.Series:
+    """Return an EMA with a complete-period warm-up."""
+    _validate_period(period)
+    numeric = _validated_numeric_series(values, "values")
+    return numeric.ewm(
+        span=period,
+        adjust=False,
+        min_periods=period,
+    ).mean().rename(f"ema_{period}")

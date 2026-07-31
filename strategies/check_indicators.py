@@ -4,7 +4,7 @@ import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
 
 from market_data.data_access import load_candles_dataframe
-from strategies.indicators import calculate_atr
+from strategies.indicators import calculate_atr, calculate_ema
 
 
 def check_known_atr_values() -> None:
@@ -33,6 +33,15 @@ def check_known_atr_values() -> None:
     )
 
 
+def check_known_ema_values() -> None:
+    values = pd.Series([10.0, 11.0, 12.0, 13.0])
+    expected = pd.Series(
+        [float("nan"), float("nan"), 11.25, 12.125],
+        name="ema_3",
+    )
+    assert_series_equal(calculate_ema(values, period=3), expected)
+
+
 def check_warm_up_and_input_immutability() -> None:
     candles = pd.DataFrame(
         {
@@ -44,6 +53,8 @@ def check_warm_up_and_input_immutability() -> None:
     original = candles.copy(deep=True)
     if not calculate_atr(candles, period=5).isna().all():
         raise AssertionError("ATR returned a value before warm-up completed.")
+    if not calculate_ema(candles["close"], period=5).isna().all():
+        raise AssertionError("EMA returned a value before warm-up completed.")
     assert_frame_equal(candles, original)
 
 
@@ -60,6 +71,9 @@ def check_no_look_ahead() -> None:
     original = calculate_atr(candles, period=3)
     changed = calculate_atr(changed_future, period=3)
     assert_series_equal(original.iloc[:17], changed.iloc[:17])
+    original_ema = calculate_ema(candles["close"], period=3)
+    changed_ema = calculate_ema(changed_future["close"], period=3)
+    assert_series_equal(original_ema.iloc[:17], changed_ema.iloc[:17])
 
 
 def check_invalid_inputs() -> None:
@@ -97,12 +111,14 @@ def check_real_development_data() -> int:
 
 def main() -> None:
     check_known_atr_values()
+    check_known_ema_values()
     check_warm_up_and_input_immutability()
     check_no_look_ahead()
     check_invalid_inputs()
     real_count = check_real_development_data()
     print("Indicator checks passed:")
     print("Known Wilder ATR values: True")
+    print("Known EMA values: True")
     print("Warm-up behavior: True")
     print("Input DataFrame unchanged: True")
     print("No look-ahead: True")

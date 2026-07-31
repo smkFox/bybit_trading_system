@@ -5,12 +5,15 @@ from enum import Enum
 
 import pandas as pd
 
-from strategies.indicators import calculate_atr
+from strategies.indicators import calculate_atr, calculate_ema
 from strategies.models import Action, PositionState, Side, StrategyDecision
 
 
-FOUR_HOURS = pd.Timedelta(hours=4)
-ENTRY_TIMING = "NEXT_4H_OPEN"
+TIMEFRAME_DURATIONS = {
+    "15m": pd.Timedelta(minutes=15),
+    "1h": pd.Timedelta(hours=1),
+    "4h": pd.Timedelta(hours=4),
+}
 REQUIRED_ROW_FIELDS = {
     "symbol",
     "timeframe",
@@ -25,6 +28,9 @@ REQUIRED_ROW_FIELDS = {
     "exit_channel_high",
     "exit_channel_low",
     "signal_atr",
+    "trend_ema_fast",
+    "trend_ema_slow",
+    "market_regime",
 }
 
 
@@ -33,21 +39,34 @@ class Reason(str, Enum):
     NO_BREAKOUT = "NO_BREAKOUT"
     LONG_BREAKOUT = "LONG_BREAKOUT"
     SHORT_BREAKOUT = "SHORT_BREAKOUT"
+    SHORT_ENTRIES_DISABLED = "SHORT_ENTRIES_DISABLED"
+    ENTRY_BLOCKED_BY_REGIME = "ENTRY_BLOCKED_BY_REGIME"
     POSITION_ACTIVE = "POSITION_ACTIVE"
     LONG_EXIT_CHANNEL = "LONG_EXIT_CHANNEL"
     SHORT_EXIT_CHANNEL = "SHORT_EXIT_CHANNEL"
 
 
+class MarketRegime(str, Enum):
+    BULL = "BULL"
+    BEAR = "BEAR"
+    NEUTRAL = "NEUTRAL"
+
+
 @dataclass(frozen=True)
 class StrategyConfig:
     strategy_id: str = "donchian_breakout"
-    strategy_version: str = "1.0.0"
+    strategy_version: str = "1.1.0"
     symbol: str = "ETHUSDT"
     signal_timeframe: str = "4h"
-    entry_channel_period: int = 20
-    exit_channel_period: int = 10
+    entry_channel_period: int = 40
+    exit_channel_period: int = 20
     atr_period: int = 14
-    stop_atr_multiplier: float = 2.0
+    stop_atr_multiplier: float = 1.5
+    allow_short_entries: bool = False
+    trend_filter_enabled: bool = False
+    trend_timeframe: str = "4h"
+    trend_ema_fast_period: int = 50
+    trend_ema_slow_period: int = 200
 
 
 def _validate_config(config: StrategyConfig) -> None:
@@ -55,6 +74,8 @@ def _validate_config(config: StrategyConfig) -> None:
         config.entry_channel_period,
         config.exit_channel_period,
         config.atr_period,
+        config.trend_ema_fast_period,
+        config.trend_ema_slow_period,
     )
     if any(
         isinstance(value, bool) or not isinstance(value, int)
@@ -67,16 +88,89 @@ def _validate_config(config: StrategyConfig) -> None:
         raise ValueError("Exit channel must be shorter than entry channel.")
     if config.stop_atr_multiplier <= 0:
         raise ValueError("ATR stop multiplier must be positive.")
+    if config.signal_timeframe not in TIMEFRAME_DURATIONS:
+        raise ValueError("Unsupported signal timeframe.")
+    if config.trend_timeframe not in TIMEFRAME_DURATIONS:
+        raise ValueError("Unsupported trend timeframe.")
+    if config.trend_ema_fast_period >= config.trend_ema_slow_period:
+        raise ValueError("Fast trend EMA must be shorter than slow trend EMA.")
+    if not isinstance(config.allow_short_entries, bool):
+        raise TypeError("allow_short_entries must be a boolean.")
+    if not isinstance(config.trend_filter_enabled, bool):
+        raise TypeError("trend_filter_enabled must be a boolean.")
+
+
+def _prepare_market_regime(
+    candles: pd.DataFrame,
+    timeframe: str,
+    config: StrategyConfig,
+) -> pd.DataFrame:
+    required = {"symbol", "timeframe", "open_time", "close"}
+    missing = sorted(required - set(candles.columns))
+    if missing:
+        raise ValueError(
+            "Trend candles are missing required columns: " + ", ".join(missing)
+        )
+    source = candles.copy(deep=True).sort_values("open_time").reset_index(
+        drop=True
+    )
+    if source.empty:
+        raise ValueError("Trend candles must not be empty.")
+    if source["symbol"].nunique() != 1 or source.iloc[0]["symbol"] != config.symbol:
+        raise ValueError("Trend candles have an unexpected symbol.")
+    if source["timeframe"].nunique() != 1 or source.iloc[0]["timeframe"] != timeframe:
+        raise ValueError("Trend candles have an unexpected timeframe.")
+
+    source["trend_available_time"] = pd.to_datetime(
+        source["open_time"],
+        utc=True,
+    ) + TIMEFRAME_DURATIONS[timeframe]
+    source["trend_ema_fast"] = calculate_ema(
+        source["close"],
+        config.trend_ema_fast_period,
+    )
+    source["trend_ema_slow"] = calculate_ema(
+        source["close"],
+        config.trend_ema_slow_period,
+    )
+    trend_ready = source[["trend_ema_fast", "trend_ema_slow"]].notna().all(
+        axis=1
+    )
+    bullish = (
+        (source["trend_ema_fast"] > source["trend_ema_slow"])
+        & (source["close"] > source["trend_ema_fast"])
+    )
+    bearish = (
+        (source["trend_ema_fast"] < source["trend_ema_slow"])
+        & (source["close"] < source["trend_ema_fast"])
+    )
+    source["market_regime"] = pd.Series(
+        pd.NA,
+        index=source.index,
+        dtype="string",
+    )
+    source.loc[trend_ready, "market_regime"] = MarketRegime.NEUTRAL.value
+    source.loc[trend_ready & bullish, "market_regime"] = MarketRegime.BULL.value
+    source.loc[trend_ready & bearish, "market_regime"] = MarketRegime.BEAR.value
+    return source[
+        [
+            "trend_available_time",
+            "trend_ema_fast",
+            "trend_ema_slow",
+            "market_regime",
+        ]
+    ]
 
 
 def prepare_market_data(
-    candles_4h: pd.DataFrame,
+    candles: pd.DataFrame,
     config: StrategyConfig = StrategyConfig(),
+    trend_candles: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
-    """Add shifted Donchian channels and ATR to closed 4h candles."""
+    """Prepare closed signal candles and attach the latest closed trend."""
     _validate_config(config)
-    if not isinstance(candles_4h, pd.DataFrame):
-        raise TypeError("candles_4h must be a pandas DataFrame.")
+    if not isinstance(candles, pd.DataFrame):
+        raise TypeError("candles must be a pandas DataFrame.")
     required = {
         "symbol",
         "timeframe",
@@ -85,16 +179,36 @@ def prepare_market_data(
         "high",
         "low",
         "close",
-        "decision_time",
     }
-    missing = sorted(required - set(candles_4h.columns))
+    missing = sorted(required - set(candles.columns))
     if missing:
         raise ValueError(
-            "candles_4h is missing required columns: " + ", ".join(missing)
+            "candles is missing required columns: " + ", ".join(missing)
         )
 
-    prepared = candles_4h.copy(deep=True)
+    prepared = candles.copy(deep=True)
     prepared = prepared.sort_values("open_time").reset_index(drop=True)
+    if prepared.empty:
+        raise ValueError("candles must not be empty.")
+    if (
+        prepared["symbol"].nunique() != 1
+        or prepared.iloc[0]["symbol"] != config.symbol
+        or prepared["timeframe"].nunique() != 1
+        or prepared.iloc[0]["timeframe"] != config.signal_timeframe
+    ):
+        raise ValueError("Signal candles have an unexpected market identity.")
+    expected_decision_time = pd.to_datetime(
+        prepared["open_time"],
+        utc=True,
+    ) + TIMEFRAME_DURATIONS[config.signal_timeframe]
+    if "decision_time" in prepared.columns:
+        actual_decision_time = pd.to_datetime(
+            prepared["decision_time"],
+            utc=True,
+        )
+        if not actual_decision_time.equals(expected_decision_time):
+            raise ValueError("Signal candle decision times are inconsistent.")
+    prepared["decision_time"] = expected_decision_time
     previous_high = prepared["high"].shift(1)
     previous_low = prepared["low"].shift(1)
     prepared["entry_channel_high"] = previous_high.rolling(
@@ -117,7 +231,29 @@ def prepare_market_data(
         prepared,
         config.atr_period,
     )
-    return prepared
+
+    if trend_candles is None:
+        if config.trend_timeframe != config.signal_timeframe:
+            raise ValueError("Separate trend candles are required.")
+        trend_source = prepared
+    else:
+        if not isinstance(trend_candles, pd.DataFrame):
+            raise TypeError("trend_candles must be a pandas DataFrame.")
+        trend_source = trend_candles
+    regime = _prepare_market_regime(
+        trend_source,
+        config.trend_timeframe,
+        config,
+    )
+    prepared = pd.merge_asof(
+        prepared.sort_values("decision_time"),
+        regime.sort_values("trend_available_time"),
+        left_on="decision_time",
+        right_on="trend_available_time",
+        direction="backward",
+        allow_exact_matches=True,
+    )
+    return prepared.drop(columns="trend_available_time").reset_index(drop=True)
 
 
 def _decision_id(
@@ -146,10 +282,16 @@ def _validate_row(row: pd.Series, config: StrategyConfig) -> None:
     missing = sorted(REQUIRED_ROW_FIELDS - set(row.index))
     if missing:
         raise ValueError("Strategy row is missing fields: " + ", ".join(missing))
-    if row["symbol"] != config.symbol or row["timeframe"] != "4h":
+    if (
+        row["symbol"] != config.symbol
+        or row["timeframe"] != config.signal_timeframe
+    ):
         raise ValueError("Strategy row has an unexpected market identity.")
     open_time = pd.Timestamp(row["open_time"])
-    if pd.Timestamp(row["decision_time"]) != open_time + FOUR_HOURS:
+    expected_decision_time = (
+        open_time + TIMEFRAME_DURATIONS[config.signal_timeframe]
+    )
+    if pd.Timestamp(row["decision_time"]) != expected_decision_time:
         raise ValueError("Strategy decision time is inconsistent.")
 
 
@@ -177,7 +319,11 @@ def _build_decision(
         action=action,
         side=side,
         reason=reason.value,
-        entry_timing=ENTRY_TIMING if action is Action.OPEN_POSITION else None,
+        entry_timing=(
+            f"NEXT_{config.signal_timeframe.upper()}_OPEN"
+            if action is Action.OPEN_POSITION
+            else None
+        ),
         stop_distance=stop_distance,
         take_profit_r_multiple=None,
         supporting_values={
@@ -187,6 +333,9 @@ def _build_decision(
             "exit_channel_high": row["exit_channel_high"],
             "exit_channel_low": row["exit_channel_low"],
             "atr": row["signal_atr"],
+            "trend_ema_fast": row["trend_ema_fast"],
+            "trend_ema_slow": row["trend_ema_slow"],
+            "market_regime": row["market_regime"],
             "position_holding_candles": (
                 position_state.holding_candles if position_state else None
             ),
@@ -199,7 +348,7 @@ def evaluate_donchian_breakout(
     position_state: PositionState | None = None,
     config: StrategyConfig = StrategyConfig(),
 ) -> StrategyDecision:
-    """Return one deterministic decision from a closed prepared 4h candle."""
+    """Return one deterministic decision from a closed prepared candle."""
     _validate_config(config)
     _validate_row(row, config)
     close = float(row["close"])
@@ -257,7 +406,15 @@ def evaluate_donchian_breakout(
         row["entry_channel_low"],
         row["signal_atr"],
     )
-    if any(pd.isna(value) for value in required_entry):
+    if config.trend_filter_enabled:
+        required_entry += (
+            row["trend_ema_fast"],
+            row["trend_ema_slow"],
+        )
+    required_values = required_entry + (
+        (row["market_regime"],) if config.trend_filter_enabled else ()
+    )
+    if any(pd.isna(value) for value in required_values):
         return _build_decision(
             row=row,
             config=config,
@@ -272,6 +429,14 @@ def evaluate_donchian_breakout(
         side = Side.LONG
         reason = Reason.LONG_BREAKOUT
     elif close < float(row["entry_channel_low"]):
+        if not config.allow_short_entries:
+            return _build_decision(
+                row=row,
+                config=config,
+                action=Action.NO_ACTION,
+                side=None,
+                reason=Reason.SHORT_ENTRIES_DISABLED,
+            )
         side = Side.SHORT
         reason = Reason.SHORT_BREAKOUT
     else:
@@ -282,6 +447,20 @@ def evaluate_donchian_breakout(
             side=None,
             reason=Reason.NO_BREAKOUT,
         )
+
+    if config.trend_filter_enabled:
+        regime = MarketRegime(str(row["market_regime"]))
+        allowed_regime = (
+            MarketRegime.BULL if side is Side.LONG else MarketRegime.BEAR
+        )
+        if regime is not allowed_regime:
+            return _build_decision(
+                row=row,
+                config=config,
+                action=Action.NO_ACTION,
+                side=None,
+                reason=Reason.ENTRY_BLOCKED_BY_REGIME,
+            )
 
     stop_distance = float(row["signal_atr"]) * config.stop_atr_multiplier
     return _build_decision(

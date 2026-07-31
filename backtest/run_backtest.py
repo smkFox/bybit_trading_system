@@ -1,21 +1,23 @@
-import argparse
 import math
-from datetime import datetime, timezone
+from datetime import datetime
+from functools import partial
 
-from backtest.engine import BacktestConfig, run_backtest
+from backtest.engine import (
+    BacktestConfig,
+    InstrumentConstraints,
+    run_backtest,
+)
 from market_data.data_access import load_candles_dataframe
-from strategies.timeframe_alignment import align_timeframes
+from strategies.donchian_breakout.strategy import (
+    StrategyConfig,
+    evaluate_donchian_breakout,
+    prepare_market_data,
+)
+from strategies.timeframes import aggregate_closed_1h_to_4h
 
 
-DEFAULT_START = "2023-01-01T00:00:00+00:00"
-DEFAULT_END = "2024-12-31T23:45:00+00:00"
-
-
-def _parse_utc_datetime(value: str) -> datetime:
-    parsed = datetime.fromisoformat(value)
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        raise argparse.ArgumentTypeError("Datetime must include a timezone.")
-    return parsed.astimezone(timezone.utc)
+START = datetime.fromisoformat("2023-01-01T00:00:00+00:00")
+END = datetime.fromisoformat("2024-12-31T23:00:00+00:00")
 
 
 def _format_value(value: object) -> str:
@@ -28,117 +30,82 @@ def _format_value(value: object) -> str:
     return str(value)
 
 
-def _print_trade(label: str, trade) -> None:
-    print(
-        f"{label}: {trade.side.value} "
-        f"{trade.entry_time.isoformat()} -> {trade.exit_time.isoformat()}, "
-        f"entry={trade.entry_price:.2f}, exit={trade.exit_price:.2f}, "
-        f"qty={trade.quantity:.4f}, net={trade.net_pnl:.6f}, "
-        f"reason={trade.exit_reason.value}"
+def _quality_constraints() -> InstrumentConstraints:
+    return InstrumentConstraints(
+        min_order_qty=0.00000001,
+        qty_step=0.00000001,
+        min_notional=0.00000001,
+        max_market_order_qty=1_000_000.0,
+        tick_size=0.01,
+        observed_at="QUALITY_MODE_WITHOUT_SIZE_LIMITS",
     )
 
 
-def parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Run the EMA Trend Pullback sequential backtest."
-    )
-    parser.add_argument(
-        "--start",
-        type=_parse_utc_datetime,
-        default=_parse_utc_datetime(DEFAULT_START),
-    )
-    parser.add_argument(
-        "--end",
-        type=_parse_utc_datetime,
-        default=_parse_utc_datetime(DEFAULT_END),
-    )
-    parser.add_argument(
-        "--risk-percent",
-        type=float,
-        default=1.0,
-        help="Maximum all-in loss budget per trade as account percent.",
-    )
-    parser.add_argument(
-        "--slippage-percent",
-        type=float,
-        default=0.05,
-        help="Adverse slippage applied to every market fill.",
-    )
-    parser.add_argument(
-        "--funding-percent",
-        type=float,
-        default=0.01,
-        help="Conservative cost per crossed 8-hour funding interval.",
-    )
-    return parser.parse_args()
+def _print_result(label: str, result) -> None:
+    print(f"{label}:")
+    for name, value in result.summary().items():
+        print(f"{name}: {_format_value(value)}")
+    for year in (2023, 2024):
+        trades = [
+            trade for trade in result.trades if trade.entry_time.year == year
+        ]
+        net_values = [trade.net_pnl for trade in trades]
+        profit = sum(value for value in net_values if value > 0)
+        loss = abs(sum(value for value in net_values if value < 0))
+        profit_factor = (
+            profit / loss
+            if loss > 0
+            else (math.inf if profit > 0 else None)
+        )
+        total_net_r = sum(
+            trade.net_pnl / trade.risk_budget for trade in trades
+        )
+        print(
+            f"year_{year}: trades={len(trades)}, "
+            f"net_pnl={sum(net_values):.6f}, "
+            f"net_r={total_net_r:.6f}, "
+            f"profit_factor={_format_value(profit_factor)}"
+        )
 
 
 def main() -> None:
-    arguments = parse_arguments()
-    if arguments.start >= arguments.end:
-        raise ValueError("Backtest start must be earlier than end.")
-
-    config = BacktestConfig(
-        risk_fraction=arguments.risk_percent / 100,
-        slippage_rate=arguments.slippage_percent / 100,
-        funding_rate_per_interval=arguments.funding_percent / 100,
-    )
-    candles_15m = load_candles_dataframe(
-        config.strategy.symbol,
-        "15m",
-        arguments.start,
-        arguments.end,
-    )
+    strategy_config = StrategyConfig()
     candles_1h = load_candles_dataframe(
-        config.strategy.symbol,
+        strategy_config.symbol,
         "1h",
-        arguments.start,
-        arguments.end,
+        START,
+        END,
     )
-    prepared = align_timeframes(
-        candles_15m,
-        candles_1h,
-        pullback_ema_period=config.strategy.pullback_ema_period,
-        atr_period=config.strategy.atr_period,
-        trend_fast_ema_period=config.strategy.trend_fast_ema_period,
-        trend_slow_ema_period=config.strategy.trend_slow_ema_period,
+    candles_4h = aggregate_closed_1h_to_4h(candles_1h)
+    prepared = prepare_market_data(candles_4h, strategy_config)
+    evaluator = partial(
+        evaluate_donchian_breakout,
+        config=strategy_config,
     )
 
-    print("Baseline assumptions:")
-    print(f"Period: {arguments.start.isoformat()} -> {arguments.end.isoformat()}")
-    print(f"Starting balance: {config.starting_balance:.2f} USDT")
-    print(f"Risk per trade: {config.risk_fraction * 100:.2f}%")
-    print(f"Leverage: {config.leverage:.2f}x")
-    print(f"Taker fee per fill: {config.taker_fee_rate * 100:.3f}%")
-    print(f"Slippage per fill: {config.slippage_rate * 100:.3f}%")
-    print(
-        "Funding assumption: "
-        f"{config.funding_rate_per_interval * 100:.3f}% cost "
-        f"per {config.funding_interval_hours}h interval"
+    quality_config = BacktestConfig(
+        starting_balance=1000.0,
+        risk_fraction=0.01,
+        leverage=100.0,
+        instrument=_quality_constraints(),
     )
-    print(
-        "Current ETHUSDT constraints "
-        f"(observed {config.instrument.observed_at}): "
-        f"min_qty={config.instrument.min_order_qty}, "
-        f"qty_step={config.instrument.qty_step}, "
-        f"min_notional={config.instrument.min_notional}, "
-        f"tick_size={config.instrument.tick_size}"
+    real_config = BacktestConfig(
+        starting_balance=10.0,
+        risk_fraction=0.05,
+        leverage=3.0,
     )
 
-    result = run_backtest(prepared, config)
-    print("Backtest summary:")
-    for name, value in result.summary().items():
-        print(f"{name}: {_format_value(value)}")
+    print("Donchian Breakout v1 baseline")
+    print(f"Period: {START} -> {END}")
+    print("Parameters: entry=20, exit=10, ATR=14, stop=2 ATR, no TP")
+    print("Costs: taker=0.055% per fill, slippage=0.050% per fill")
+    print("Funding: 0.010% cost per crossed 8h interval")
+    print(f"Prepared candles: 1h={len(candles_1h)}, 4h={len(candles_4h)}")
 
-    if result.trades:
-        print("Trade samples:")
-        sample = result.trades[:3]
-        if len(result.trades) > 6:
-            sample += result.trades[-3:]
-        elif len(result.trades) > 3:
-            sample += result.trades[3:]
-        for number, trade in enumerate(sample, start=1):
-            _print_trade(f"trade_{number}", trade)
+    quality_result = run_backtest(prepared, evaluator, quality_config)
+    real_result = run_backtest(prepared, evaluator, real_config)
+    _print_result("Quality mode — 1000 USDT, 1% risk, size filters neutralized", quality_result)
+    _print_result("Executable mode — 10 USDT, 5% risk, 3x", real_result)
 
 
 if __name__ == "__main__":

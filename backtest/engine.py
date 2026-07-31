@@ -1,5 +1,6 @@
 import math
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
@@ -7,19 +8,24 @@ from enum import Enum
 
 import pandas as pd
 
-from strategies.ema_trend_pullback import (
+from strategies.models import (
     Action,
     PositionState,
     Side,
-    StrategyConfig,
-    evaluate_ema_trend_pullback,
+    StrategyDecision,
 )
+
+
+StrategyEvaluator = Callable[
+    [pd.Series, PositionState | None],
+    StrategyDecision,
+]
 
 
 class ExitReason(str, Enum):
     STOP_LOSS = "STOP_LOSS"
     TAKE_PROFIT = "TAKE_PROFIT"
-    TIME_EXIT = "TIME_EXIT"
+    STRATEGY_EXIT = "STRATEGY_EXIT"
     END_OF_DATA = "END_OF_DATA"
 
 
@@ -49,7 +55,6 @@ class BacktestConfig:
     slippage_rate: float = 0.0005
     funding_rate_per_interval: float = 0.0001
     funding_interval_hours: int = 8
-    strategy: StrategyConfig = field(default_factory=StrategyConfig)
     instrument: InstrumentConstraints = field(
         default_factory=InstrumentConstraints
     )
@@ -66,7 +71,7 @@ class OpenPosition:
     entry_fee: float
     margin: float
     stop_loss: float
-    take_profit: float
+    take_profit: float | None
     risk_budget: float
     decision_id: str
 
@@ -82,7 +87,8 @@ class Trade:
     notional: float
     margin: float
     stop_loss: float
-    take_profit: float
+    take_profit: float | None
+    risk_budget: float
     exit_reason: ExitReason
     gross_pnl: float
     fees: float
@@ -112,10 +118,11 @@ class BacktestResult:
 
     def summary(self) -> dict[str, float | int | str | None]:
         starting = self.config.starting_balance
-        ending = (
-            self.trades[-1].balance_after if self.trades else starting
-        )
+        ending = self.trades[-1].balance_after if self.trades else starting
         net_results = [trade.net_pnl for trade in self.trades]
+        net_r_results = [
+            trade.net_pnl / trade.risk_budget for trade in self.trades
+        ]
         wins = [value for value in net_results if value > 0]
         losses = [value for value in net_results if value < 0]
         gross_profit = sum(wins)
@@ -179,6 +186,12 @@ class BacktestResult:
             "expectancy": (
                 sum(net_results) / len(net_results) if net_results else None
             ),
+            "total_net_r": sum(net_r_results),
+            "average_net_r": (
+                sum(net_r_results) / len(net_r_results)
+                if net_r_results
+                else None
+            ),
             "profit_factor": profit_factor,
             "closed_equity_max_drawdown_percent": maximum_drawdown * 100,
             "longest_losing_streak": longest_losing_streak,
@@ -186,7 +199,7 @@ class BacktestResult:
             "total_funding": sum(trade.funding for trade in self.trades),
             "stop_loss_exits": exit_counts[ExitReason.STOP_LOSS.value],
             "take_profit_exits": exit_counts[ExitReason.TAKE_PROFIT.value],
-            "time_exits": exit_counts[ExitReason.TIME_EXIT.value],
+            "strategy_exits": exit_counts[ExitReason.STRATEGY_EXIT.value],
             "end_of_data_exits": exit_counts[ExitReason.END_OF_DATA.value],
             "risk_rejections": rejection_counts[
                 RejectionReason.RISK_LIMIT_EXCEEDED.value
@@ -252,9 +265,12 @@ def _entry_fill_price(
         if side is Side.LONG
         else 1 - config.slippage_rate
     )
-    raw_price = market_price * multiplier
     rounding = "ceil" if side is Side.LONG else "floor"
-    return _round_to_step(raw_price, config.instrument.tick_size, rounding)
+    return _round_to_step(
+        market_price * multiplier,
+        config.instrument.tick_size,
+        rounding,
+    )
 
 
 def _exit_fill_price(
@@ -267,28 +283,35 @@ def _exit_fill_price(
         if side is Side.LONG
         else 1 + config.slippage_rate
     )
-    raw_price = market_price * multiplier
     rounding = "floor" if side is Side.LONG else "ceil"
-    return _round_to_step(raw_price, config.instrument.tick_size, rounding)
+    return _round_to_step(
+        market_price * multiplier,
+        config.instrument.tick_size,
+        rounding,
+    )
 
 
 def _protective_prices(
     entry_price: float,
     stop_distance: float,
-    take_profit_multiple: float,
+    take_profit_multiple: float | None,
     side: Side,
     tick_size: float,
-) -> tuple[float, float]:
+) -> tuple[float, float | None]:
     if side is Side.LONG:
         stop = _round_to_step(
             entry_price - stop_distance,
             tick_size,
             "floor",
         )
-        target = _round_to_step(
-            entry_price + stop_distance * take_profit_multiple,
-            tick_size,
-            "floor",
+        target = (
+            _round_to_step(
+                entry_price + stop_distance * take_profit_multiple,
+                tick_size,
+                "floor",
+            )
+            if take_profit_multiple is not None
+            else None
         )
     else:
         stop = _round_to_step(
@@ -296,12 +319,16 @@ def _protective_prices(
             tick_size,
             "ceil",
         )
-        target = _round_to_step(
-            entry_price - stop_distance * take_profit_multiple,
-            tick_size,
-            "ceil",
+        target = (
+            _round_to_step(
+                entry_price - stop_distance * take_profit_multiple,
+                tick_size,
+                "ceil",
+            )
+            if take_profit_multiple is not None
+            else None
         )
-    if stop <= 0 or target <= 0:
+    if stop <= 0 or (target is not None and target <= 0):
         raise ValueError("Protective prices must be positive.")
     return stop, target
 
@@ -326,7 +353,7 @@ def _estimated_stop_loss_per_unit(
 
 def _attempt_entry(
     *,
-    decision,
+    decision: StrategyDecision,
     next_row: pd.Series,
     next_index: int,
     balance: float,
@@ -335,6 +362,8 @@ def _attempt_entry(
     side = decision.side
     if side is None or decision.stop_distance is None:
         raise ValueError("Open decision is missing side or stop distance.")
+    if not math.isfinite(decision.stop_distance) or decision.stop_distance <= 0:
+        raise ValueError("Open decision stop distance must be positive.")
 
     expected_entry = _entry_fill_price(float(next_row["open"]), side, config)
     stop_loss, take_profit = _protective_prices(
@@ -351,7 +380,7 @@ def _attempt_entry(
         side,
         config,
     )
-    raw_quantity = risk_budget / risk_per_unit
+    raw_quantity = risk_budget / risk_per_unit if risk_budget > 0 else 0.0
     quantity = _round_to_step(
         raw_quantity,
         config.instrument.qty_step,
@@ -425,22 +454,34 @@ def _price_exit(
     if position.side is Side.LONG:
         if candle_open <= position.stop_loss:
             return ExitReason.STOP_LOSS, candle_open
-        if candle_open >= position.take_profit:
+        if (
+            position.take_profit is not None
+            and candle_open >= position.take_profit
+        ):
             return ExitReason.TAKE_PROFIT, candle_open
         stop_hit = candle_low <= position.stop_loss
-        target_hit = candle_high >= position.take_profit
+        target_hit = (
+            position.take_profit is not None
+            and candle_high >= position.take_profit
+        )
     else:
         if candle_open >= position.stop_loss:
             return ExitReason.STOP_LOSS, candle_open
-        if candle_open <= position.take_profit:
+        if (
+            position.take_profit is not None
+            and candle_open <= position.take_profit
+        ):
             return ExitReason.TAKE_PROFIT, candle_open
         stop_hit = candle_high >= position.stop_loss
-        target_hit = candle_low <= position.take_profit
+        target_hit = (
+            position.take_profit is not None
+            and candle_low <= position.take_profit
+        )
 
     if stop_hit:
         return ExitReason.STOP_LOSS, position.stop_loss
     if target_hit:
-        return ExitReason.TAKE_PROFIT, position.take_profit
+        return ExitReason.TAKE_PROFIT, float(position.take_profit)
     return None
 
 
@@ -470,15 +511,11 @@ def _close_position(
         config,
     )
     exit_notional = position.quantity * exit_price
-    if position.side is Side.LONG:
-        gross_pnl = (
-            exit_price - position.entry_price
-        ) * position.quantity
-    else:
-        gross_pnl = (
-            position.entry_price - exit_price
-        ) * position.quantity
-
+    gross_pnl = (
+        (exit_price - position.entry_price) * position.quantity
+        if position.side is Side.LONG
+        else (position.entry_price - exit_price) * position.quantity
+    )
     exit_fee = exit_notional * config.taker_fee_rate
     funding_count = _funding_events(
         position.entry_time,
@@ -506,6 +543,7 @@ def _close_position(
             margin=position.margin,
             stop_loss=position.stop_loss,
             take_profit=position.take_profit,
+            risk_budget=position.risk_budget,
             exit_reason=exit_reason,
             gross_pnl=gross_pnl,
             fees=fees,
@@ -520,34 +558,33 @@ def _close_position(
 
 def run_backtest(
     prepared_candles: pd.DataFrame,
+    evaluate_strategy: StrategyEvaluator,
     config: BacktestConfig = BacktestConfig(),
 ) -> BacktestResult:
-    """Run one sequential, one-position EMA Trend Pullback backtest."""
+    """Run one chronological, one-position strategy simulation."""
     _validate_config(config)
     if not isinstance(prepared_candles, pd.DataFrame):
         raise TypeError("prepared_candles must be a pandas DataFrame.")
-    if len(prepared_candles) < 3:
-        raise ValueError("Backtest requires at least three prepared candles.")
+    if len(prepared_candles) < 2:
+        raise ValueError("Backtest requires at least two prepared candles.")
 
     candles = prepared_candles.sort_values("open_time").reset_index(drop=True)
+    rows = [row for _, row in candles.iterrows()]
     balance = config.starting_balance
     position: OpenPosition | None = None
     trades: list[Trade] = []
     rejected_entries: list[RejectedEntry] = []
     entry_signals = 0
 
-    for index in range(1, len(candles)):
-        pullback_row = candles.iloc[index - 1]
-        confirmation_row = candles.iloc[index]
-
+    for index, current_row in enumerate(rows):
         if position is not None:
-            price_exit = _price_exit(position, confirmation_row)
+            price_exit = _price_exit(position, current_row)
             if price_exit is not None:
                 exit_reason, market_price = price_exit
                 trade, balance = _close_position(
                     position=position,
                     market_exit_price=market_price,
-                    exit_time=confirmation_row["decision_time"],
+                    exit_time=current_row["decision_time"],
                     exit_reason=exit_reason,
                     balance=balance,
                     config=config,
@@ -556,28 +593,24 @@ def run_backtest(
                 position = None
 
         if position is not None:
-            holding_candles = index - position.entry_index + 1
             position_state = PositionState(
                 side=position.side,
                 entry_time=position.entry_time,
-                holding_candles=holding_candles,
+                holding_candles=index - position.entry_index + 1,
             )
-            decision = evaluate_ema_trend_pullback(
-                pullback_row,
-                confirmation_row,
-                position_state,
-                config.strategy,
-            )
+            decision = evaluate_strategy(current_row, position_state)
+            if decision.action is Action.OPEN_POSITION:
+                raise ValueError("Strategy tried to open while position exists.")
             if (
                 decision.action is Action.CLOSE_POSITION
-                and index + 1 < len(candles)
+                and index + 1 < len(rows)
             ):
-                next_row = candles.iloc[index + 1]
+                next_row = rows[index + 1]
                 trade, balance = _close_position(
                     position=position,
                     market_exit_price=float(next_row["open"]),
                     exit_time=next_row["open_time"],
-                    exit_reason=ExitReason.TIME_EXIT,
+                    exit_reason=ExitReason.STRATEGY_EXIT,
                     balance=balance,
                     config=config,
                 )
@@ -585,22 +618,17 @@ def run_backtest(
                 position = None
             continue
 
-        if index + 1 >= len(candles):
+        if index + 1 >= len(rows):
             continue
 
-        decision = evaluate_ema_trend_pullback(
-            pullback_row,
-            confirmation_row,
-            None,
-            config.strategy,
-        )
+        decision = evaluate_strategy(current_row, None)
         if decision.action is not Action.OPEN_POSITION:
             continue
 
         entry_signals += 1
         position, rejection = _attempt_entry(
             decision=decision,
-            next_row=candles.iloc[index + 1],
+            next_row=rows[index + 1],
             next_index=index + 1,
             balance=balance,
             config=config,
@@ -609,7 +637,7 @@ def run_backtest(
             rejected_entries.append(rejection)
 
     if position is not None:
-        final_candle = candles.iloc[-1]
+        final_candle = rows[-1]
         trade, balance = _close_position(
             position=position,
             market_exit_price=float(final_candle["close"]),

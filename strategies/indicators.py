@@ -27,19 +27,6 @@ def _validated_numeric_series(values: pd.Series, name: str) -> pd.Series:
     return numeric
 
 
-def calculate_ema(close: pd.Series, period: int) -> pd.Series:
-    """Return a close-price EMA without changing the input Series."""
-    _validate_period(period)
-    close_values = _validated_numeric_series(close, "close")
-
-    ema = close_values.ewm(
-        span=period,
-        adjust=False,
-        min_periods=period,
-    ).mean()
-    return ema.rename(f"ema_{period}")
-
-
 def calculate_atr(candles: pd.DataFrame, period: int) -> pd.Series:
     """Return Wilder ATR without changing the input candle DataFrame."""
     _validate_period(period)

@@ -48,10 +48,10 @@ The initial complete trading cycle is intentionally limited to:
 * exchange: Bybit;
 * market: USDT perpetual futures;
 * symbol: `ETHUSDT`;
-* signal timeframe: `15m`;
-* market-regime timeframe: `1h`;
+* stored source timeframe for the current strategy: `1h`;
+* derived signal timeframe: `4h`;
 * profit and loss currency: USDT;
-* trading style: intraday and candle based;
+* trading style: systematic candle-based trend following;
 * one transparent strategy under development and, once approved, one active
   configuration.
 
@@ -127,7 +127,7 @@ It returns an explicit trading decision.
 
 The concrete decision model is defined when the strategy is implemented. It
 may represent entry, exit, position management, or no action and may include
-supporting values such as a reason, stop-loss level, and take-profit level.
+supporting values such as a reason, stop-loss level, and optional target.
 
 The same decision model and strategy implementation must be used by backtest,
 demo, and live trading.
@@ -138,7 +138,7 @@ A strategy must define, as applicable:
 * no-trade conditions;
 * exit conditions;
 * stop-loss calculation;
-* take-profit calculation;
+* take-profit calculation, if used by the hypothesis;
 * maximum holding time, if required by the hypothesis;
 * an explanation and supporting values.
 
@@ -151,7 +151,7 @@ Processes historical candles sequentially and simulates:
 
 * entries and exits;
 * position sizing;
-* stop loss and take profit;
+* stop loss, optional take profit, and strategy-directed exits;
 * commissions;
 * slippage;
 * trade results and performance metrics.
@@ -217,8 +217,8 @@ The following rules are mandatory:
 * only closed candles are used for initial analysis and trading decisions;
 * candles are processed chronologically;
 * historical simulation never accesses future candles;
-* a `1h` regime associated with a `15m` candle must use only the last closed
-  `1h` candle available at that moment;
+* a derived `4h` candle must contain exactly four consecutive closed `1h`
+  candles aligned to UTC boundaries;
 * requested database ranges are filtered before unnecessary data is loaded;
 * historical and incremental downloads use the same Bybit client and
   normalization logic;
@@ -252,7 +252,7 @@ including when the corresponding phase requires it:
 
 Normally keep reproducible temporary calculations in memory:
 
-* EMA and ATR columns;
+* ATR and channel columns;
 * temporary DataFrames;
 * intermediate experiment values;
 * debug output.

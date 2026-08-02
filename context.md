@@ -47,13 +47,13 @@ The initial complete trading cycle is intentionally limited to:
 
 * exchange: Bybit;
 * market: USDT perpetual futures;
-* symbol: `ETHUSDT`;
-* stored source timeframe for the current strategy: `1h`;
-* derived signal timeframe: `4h`;
+* traded symbol: `ETHUSDT`;
+* optional market-context symbol for an explicit hypothesis: `BTCUSDT`;
+* stored source timeframes currently used in research: `15m` and `1h`;
 * profit and loss currency: USDT;
-* trading style: systematic candle-based trend following;
-* one transparent strategy under development and, once approved, one active
-  configuration.
+* trading style: systematic candle-based strategies with explicit rules;
+* at most one transparent strategy under development and, once approved, one
+  active configuration.
 
 The roadmap identifies the current strategy hypothesis. A new strategy is not
 part of the active scope merely because it may be useful later.
@@ -217,8 +217,8 @@ The following rules are mandatory:
 * only closed candles are used for initial analysis and trading decisions;
 * candles are processed chronologically;
 * historical simulation never accesses future candles;
-* a derived `4h` candle must contain exactly four consecutive closed `1h`
-  candles aligned to UTC boundaries;
+* derived or merged timeframe data may use only source candles that were fully
+  closed by the decision timestamp;
 * requested database ranges are filtered before unnecessary data is loaded;
 * historical and incremental downloads use the same Bybit client and
   normalization logic;
@@ -252,7 +252,7 @@ including when the corresponding phase requires it:
 
 Normally keep reproducible temporary calculations in memory:
 
-* ATR and channel columns;
+* indicator and cross-market relationship columns;
 * temporary DataFrames;
 * intermediate experiment values;
 * debug output.

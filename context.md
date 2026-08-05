@@ -47,9 +47,9 @@ The initial complete trading cycle is intentionally limited to:
 
 * exchange: Bybit;
 * market: USDT perpetual futures;
-* traded symbol: `ETHUSDT`;
-* optional market-context symbol for an explicit hypothesis: `BTCUSDT`;
-* stored source timeframes currently used in research: `15m` and `1h`;
+* traded symbol for the current research cycle: `SOLUSDT`;
+* other stored symbols are historical research inputs, not active instruments;
+* stored source timeframes currently used in research: `5m`, `15m`, and `1h`;
 * profit and loss currency: USDT;
 * trading style: systematic candle-based strategies with explicit rules;
 * at most one transparent strategy under development and, once approved, one
@@ -243,7 +243,7 @@ SQLite is the initial persistent store.
 Persist data that is important, costly, or impossible to reproduce exactly,
 including when the corresponding phase requires it:
 
-* market candles;
+* market candles, Open Interest, and settled Funding Rates;
 * approved strategy configurations;
 * important backtest summaries and selected trades;
 * demo and live trades;
@@ -352,10 +352,13 @@ Before demo or live trading, explicitly define:
 * pause and emergency-stop conditions;
 * exchange minimum-order and quantity-step constraints.
 
-The initial capital experiment may start with 10 USDT, but growing 10 USDT to
-100 USDT is an aspiration, not proof by itself that a strategy is robust. A
-strategy is judged by validated expectancy, drawdown, execution realism, and
-survival risk rather than one short profitable run.
+The confirmed research and future demo configuration is 50 USDT capital, 5%
+risk per trade, and 3x baseline leverage. This is not authorization for live
+trading; live limits require a separate decision after successful validation
+and demo evidence. Growing a small account is an aspiration, not proof by
+itself that a strategy is robust. A strategy is judged by validated expectancy,
+drawdown, execution realism, and survival risk rather than one short profitable
+run.
 
 Risk, fee, slippage, and position-sizing calculations must each have one source
 of truth and must be shared by backtest, demo, and live execution where

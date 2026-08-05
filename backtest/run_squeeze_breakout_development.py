@@ -3,16 +3,19 @@ from datetime import datetime
 from functools import partial
 
 from backtest.engine import BacktestConfig, InstrumentConstraints, run_backtest
-from market_data.data_access import load_candles_dataframe
-from strategies.btc_eth_shock_mean_reversion.strategy import (
+from market_data.data_access import (
+    load_candles_dataframe,
+    load_funding_rates_dataframe,
+    load_open_interest_dataframe,
+)
+from strategies.volatility_squeeze_breakout.strategy import (
     StrategyConfig,
     evaluate_strategy,
     prepare_market_data,
 )
 
 
-WARMUP_START = datetime.fromisoformat("2022-11-01T00:00:00+00:00")
-SIGNAL_WARMUP_START = datetime.fromisoformat("2022-12-30T00:00:00+00:00")
+WARMUP_START = datetime.fromisoformat("2022-12-01T00:00:00+00:00")
 DEVELOPMENT_START = datetime.fromisoformat("2023-01-01T00:00:00+00:00")
 HOURLY_END = datetime.fromisoformat("2024-12-31T23:00:00+00:00")
 SIGNAL_END = datetime.fromisoformat("2024-12-31T23:45:00+00:00")
@@ -79,6 +82,7 @@ def _print_result(label: str, result) -> None:
         "total_fees",
         "total_funding",
         "stop_loss_exits",
+        "take_profit_exits",
         "strategy_exits",
         "end_of_data_exits",
     )
@@ -124,25 +128,21 @@ def _development_gate(result) -> dict[str, bool]:
 
 def main() -> None:
     config = StrategyConfig()
-    eth_1h = load_candles_dataframe(
-        config.traded_symbol,
-        "1h",
-        WARMUP_START,
-        HOURLY_END,
+    candles_1h = load_candles_dataframe(
+        config.symbol, "1h", WARMUP_START, HOURLY_END
     )
-    btc_1h = load_candles_dataframe(
-        config.context_symbol,
-        "1h",
-        WARMUP_START,
-        HOURLY_END,
+    candles_15m = load_candles_dataframe(
+        config.symbol, "15m", WARMUP_START, SIGNAL_END
     )
-    eth_15m = load_candles_dataframe(
-        config.traded_symbol,
-        "15m",
-        SIGNAL_WARMUP_START,
-        SIGNAL_END,
+    open_interest = load_open_interest_dataframe(
+        config.symbol, "15m", WARMUP_START, SIGNAL_END
     )
-    prepared = prepare_market_data(eth_1h, btc_1h, eth_15m, config)
+    funding = load_funding_rates_dataframe(
+        config.symbol, WARMUP_START, SIGNAL_END
+    )
+    prepared = prepare_market_data(
+        candles_1h, candles_15m, open_interest, funding, config
+    )
     development = prepared.loc[
         prepared["open_time"] >= DEVELOPMENT_START
     ].reset_index(drop=True)
@@ -168,18 +168,20 @@ def main() -> None:
         ),
     )
 
-    print("BTC-confirmed ETH Shock Mean Reversion v1 development")
+    print("Volatility Squeeze Breakout v1 development")
     print(f"Period: {DEVELOPMENT_START} -> {development.iloc[-1]['decision_time']}")
     print(
-        f"Candles: ETH 1h={len(eth_1h)}, BTC 1h={len(btc_1h)}, "
-        f"ETH 15m={len(eth_15m)}, development 15m={len(development)}"
+        f"Data: 1h={len(candles_1h)}, 15m={len(candles_15m)}, "
+        f"OI 15m={len(open_interest)}, funding={len(funding)}, "
+        f"development 15m={len(development)}"
     )
     print(
-        "Parameters: beta=168h, residual Z=168h, shock=2.5, "
-        "normalization=0.5, confirmation=4x15m, ATR14 stop=1.5, max=8h"
+        "Parameters: ATR14/close <= prior 720h p20, range=4h, setup=4h, "
+        "volume>1.5x prior20 median, rising OI, funding prior90 p10/p90, "
+        "stop=1.5 ATR15m, target=2R, max=8h"
     )
     print("Costs: taker=0.055% and adverse slippage=0.050% per fill")
-    print("Funding: 0.010% cost per crossed 8h interval")
+    print("Funding cost model: conservative 0.010% per crossed 8h interval")
     _print_result("Signal quality — 1000 USDT / 1% risk", quality_result)
     _print_result("Executable — 10 USDT / 5% risk / 3x", executable_result)
 

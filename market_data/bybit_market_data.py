@@ -16,6 +16,7 @@ RETRY_DELAY_SECONDS = 1
 RETRYABLE_HTTP_STATUS_CODES = {429, 500, 502, 503, 504}
 RETRYABLE_BYBIT_CODES = {429, 10000, 10006, 10016}
 TIMEFRAMES = {
+    "5m": {"api_interval": "5", "minutes": 5},
     "15m": {"api_interval": "15", "minutes": 15},
     "1h": {"api_interval": "60", "minutes": 60},
 }

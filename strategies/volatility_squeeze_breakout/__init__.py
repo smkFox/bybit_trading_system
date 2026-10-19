@@ -1,1 +1,0 @@
-"""Volatility Squeeze Breakout strategy."""
